@@ -500,6 +500,18 @@
 </head>
 <body>
 
+<!-- ЭКРАН БЛОКИРОВКИ -->
+<div id="lockScreen" style="position:fixed;inset:0;background:linear-gradient(135deg,#2c3e50,#4a6075);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Arial,sans-serif;">
+  <div style="background:#fff;padding:30px 35px;border-radius:12px;box-shadow:0 10px 40px rgba(0,0,0,.4);width:340px;text-align:center;">
+    <div style="font-size:40px;margin-bottom:10px;">🔒</div>
+    <h2 style="margin:0 0 5px;color:#2c3e50;font-size:18px;">ИСУ-Табель Экспресс</h2>
+    <p style="margin:0 0 20px;color:#777;font-size:12px;">Введите пароль для доступа</p>
+    <input type="password" id="passwordInput" placeholder="Пароль" autocomplete="off" style="width:100%;padding:10px 12px;font-size:14px;border:2px solid #ddd;border-radius:6px;box-sizing:border-box;outline:none;">
+    <div id="passwordError" style="color:#e74c3c;font-size:12px;margin-top:8px;min-height:16px;"></div>
+    <button id="passwordSubmit" style="width:100%;padding:11px;margin-top:10px;font-size:14px;font-weight:bold;background:#9c27b0;color:#fff;border:none;border-radius:6px;cursor:pointer;">Войти</button>
+  </div>
+</div>
+
 <div class="controls-panel">
   <div class="controls-row top">
     <div class="group label-inline">
@@ -537,7 +549,8 @@
         <button class="btn-mode btn-guide" id="guideBtn">📘 Инструкция</button>
         <button class="btn-mode btn-manual" id="manualBtn">📖 Шпаргалка</button>
         <button class="btn-mode btn-about" id="aboutBtn">ℹ️ О программе</button>
-      </div>
+        <button class="btn-mode" id="logoutBtn" title="Заблокировать">🔒 Выйти</button>
+ </div>
     </div>
   </div>
 
@@ -2896,6 +2909,71 @@ document.getElementById('generateScriptBtn').addEventListener('click', () => {
     btn.style.background = '#4caf50'; btn.style.borderColor = '#388e3c';
     setTimeout(() => { btn.innerHTML = originalText; btn.style.background = '#9c27b0'; btn.style.borderColor = '#7b1fa2'; }, 2000);
   }).catch(err => { alert('Не удалось скопировать. Ошибка: ' + err); });
+});
+</script>
+<script>
+(function(){
+  // Хеш пароля "admin". Чтобы поставить свой, сгенерируйте хеш на сайте emn178.github.io/online-tools/sha256.html и вставьте сюда.
+  const PASSWORD_HASH = '930fd87c4c1e98206322f2601dddd65478c1f545070fe760a077c2b93ffbf000'; 
+  
+  const SESSION_KEY = 'isu_tabel_auth';
+  const lock = document.getElementById('lockScreen');
+  const input = document.getElementById('passwordInput');
+  const err = document.getElementById('passwordError');
+  const btn = document.getElementById('passwordSubmit');
+
+  // Если уже вошли — показываем сайт
+  if (sessionStorage.getItem(SESSION_KEY) === '1') { 
+    lock.remove(); 
+    return; 
+  }
+  document.body.style.overflow = 'hidden';
+
+  let failCount = 0;
+  let lockUntil = 0;
+
+  async function sha256(t){
+    const b = new TextEncoder().encode(t);
+    const h = await crypto.subtle.digest('SHA-256', b);
+    return [...new Uint8Array(h)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+
+  async function tryUnlock(){
+    if (Date.now() < lockUntil) {
+      err.textContent = `Подождите ${Math.ceil((lockUntil-Date.now())/1000)} сек.`;
+      return;
+    }
+    if (!input.value) { err.textContent = 'Введите пароль'; return; }
+    
+    const hash = await sha256(input.value);
+    
+    if (hash === PASSWORD_HASH) {
+      sessionStorage.setItem(SESSION_KEY, '1');
+      lock.style.transition = 'opacity .3s';
+      lock.style.opacity = '0';
+      setTimeout(()=>{ lock.remove(); document.body.style.overflow=''; }, 300);
+    } else {
+      failCount++;
+      if (failCount >= 3) {
+        lockUntil = Date.now() + 10000;
+        failCount = 0;
+        err.textContent = 'Слишком много попыток. Подождите 10 сек.';
+      } else {
+        err.textContent = '❌ Неверный пароль';
+      }
+      input.value = ''; 
+      input.focus();
+    }
+  }
+
+  btn.addEventListener('click', tryUnlock);
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') tryUnlock(); });
+  setTimeout(()=>input.focus(), 100);
+})();
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  sessionStorage.removeItem('isu_tabel_auth');
+  location.reload();
 });
 </script>
 </body>
