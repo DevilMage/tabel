@@ -1,0 +1,2902 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>ИСУ-Табель Экспресс</title>
+<!-- Подключаем библиотеку для работы с Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; font-size: 11px; margin: 10px; background: #f9f9f9; }
+  .controls-panel {
+    background: #fef9e7;
+    border: 1px solid #f39c12;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    border-radius: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .controls-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+  .controls-row.top { align-items: center; }
+  .controls-row.top > .group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .controls-row.top .group.label-inline {
+    background: #fff;
+    border: 1px solid #e0d5c0;
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .controls-row.bottom {
+    justify-content: center;
+    border-top: 1px solid #f0e2c0;
+    padding-top: 8px;
+    gap: 15px;
+  }
+  .controls-row.bottom .legend {
+    display: flex;
+    gap: 15px;
+    font-size: 11px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .controls-row.bottom .right-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .controls-panel label { font-weight: bold; margin-right: 2px; }
+  .controls-panel select { padding: 4px 8px; font-size: 12px; border: 1px solid #ccc; border-radius: 4px; background: #fff; }
+
+  .paint-tools {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .paint-tools .group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    background: #fff;
+    border: 1px solid #e0d5c0;
+    border-radius: 6px;
+    position: relative;
+  }
+
+  .brush-palette-popup {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 4px;
+    background: #fff;
+    border: 1px solid #e0d5c0;
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 8px;
+    display: none;
+    gap: 6px;
+    z-index: 200;
+    align-items: center;
+  }
+  .brush-palette-popup.open { display: flex; }
+  .brush-palette-popup .color-swatch {
+    width: 24px; height: 24px; border: 2px solid #ccc; border-radius: 4px;
+    cursor: pointer; transition: transform 0.1s, border-color 0.1s; box-sizing: border-box;
+  }
+  .brush-palette-popup .color-swatch:hover { transform: scale(1.15); }
+  .brush-palette-popup .color-swatch.selected { border-color: #333; box-shadow: 0 0 4px rgba(0,0,0,0.5); transform: scale(1.1); }
+  .brush-palette-popup .palette-divider { width: 1px; height: 22px; background: #ccc; margin: 0 4px; }
+  #paintColor { display: none; }
+
+  .btn-mode {
+    padding: 6px 12px;
+    font-size: 12px;
+    border: 1px solid #ccc;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-mode:hover { background: #f0f0f0; }
+  .btn-mode.active { background: #f39c12; color: #fff; border-color: #d68910; font-weight: bold; box-shadow: 0 0 5px rgba(243,156,18,0.5); }
+  .btn-autofill { background: #e8f5e9; border-color: #66bb6a; }
+  .btn-autofill:hover { background: #c8e6c9; }
+  .btn-auto-employee { background: #e3f2fd; border-color: #2196f3; }
+  .btn-auto-employee:hover { background: #bbdefb; }
+  .btn-auto-employee.active { background: #2196f3; color: #fff; border-color: #1565c0; }
+  .btn-calendar { background: #f3e5f5; border-color: #9c27b0; }
+  .btn-calendar:hover { background: #e1bee7; }
+  .btn-manual { background: #fff3e0; border-color: #ffb74d; }
+  .btn-manual:hover { background: #ffe0b2; }
+  .btn-about { background: #e1f5fe; border-color: #03a9f4; }
+  .btn-about:hover { background: #b3e5fc; }
+  .btn-guide { background: #fce4ec; border-color: #e91e63; color: #ad1457; }
+  .btn-guide:hover { background: #f8bbd0; }
+  .btn-employees { background: #e8f5e9; border-color: #4caf50; color: #2e7d32; }
+  .btn-employees:hover { background: #c8e6c9; }
+  .btn-primary {
+    background: #9c27b0 !important;
+    border-color: #7b1fa2 !important;
+    color: #fff !important;
+    font-weight: bold;
+  }
+  .history-tools { display: flex; gap: 5px; }
+  .btn-history { padding: 6px 12px; font-size: 13px; border: 1px solid #ccc; background: #fff; cursor: pointer; border-radius: 4px; transition: all 0.15s; display: inline-flex; align-items: center; gap: 4px; }
+  .btn-history:hover:not(:disabled) { background: #e0e0e0; }
+  .btn-history:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .legend-item { display: flex; align-items: center; gap: 5px; }
+  .legend-color { width: 15px; height: 15px; border: 1px solid #ccc; border-radius: 3px; }
+
+  .bg-weekend { background-color: #fce4e4 !important; }
+  .bg-holiday { background-color: #ff9999 !important; }
+  .bg-regional { background-color: #c6e0b4 !important; }
+  .table-container { overflow-x: auto; background: #fff; border: 1px solid #ccc; position: relative; }
+
+  .table-wrap { position: relative; }
+
+  #timesheet { border-collapse: collapse; width: 100%; min-width: 1550px; table-layout: fixed; }
+  #timesheet th, #timesheet td { border: 1px solid #d0d0d0; padding: 2px 4px; text-align: center; vertical-align: middle; box-sizing: border-box; }
+  #timesheet thead th { background: #f5f5f5; font-weight: normal; position: sticky; top: 0; z-index: 10; }
+  
+  tbody.emp-group { position: relative; }
+  
+  .sticky-col-check { position: sticky; left: 0; background: #fff; z-index: 6; width: 32px; border-right: 2px solid #999; }
+  .sticky-col-1 { position: sticky; left: 32px; background: #fff; z-index: 5; width: 40px; border-right: 2px solid #999; }
+  .sticky-col-2 { position: sticky; left: 72px; background: #fff; z-index: 5; width: 180px; text-align: left; padding-left: 4px; font-size: 10px; line-height: 1.2; border-right: 1px solid #ccc; cursor: pointer; }
+  .sticky-col-3 { position: sticky; left: 252px; background: #fff; z-index: 5; width: 80px; border-right: 2px solid #999; cursor: pointer; }
+  .sticky-col-4 { position: sticky; left: 332px; background: #fff; z-index: 5; width: 150px; text-align: left; padding-left: 4px; font-size: 10px; line-height: 1.1; border-right: 2px solid #999; cursor: pointer; }
+  
+  /* Убираем выделение текста при двойном клике для заголовков и sticky-колонок */
+  thead, .sticky-col-2, .sticky-col-3, .sticky-col-4, .sticky-col-1, .sticky-col-check {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  .check-cell { cursor: pointer; user-select: none; background: #fff; }
+  .check-cell:hover { background: #e3f2fd; }
+  .check-mark { display: inline-block; width: 18px; height: 18px; line-height: 18px; border: 1.5px solid #aaa; border-radius: 4px; background: #fff; font-size: 14px; font-weight: bold; color: #fff; transition: all 0.15s; }
+  /* Синяя галочка */
+  .check-cell.checked .check-mark { background: #2196f3; border-color: #1565c0; color: #fff; }
+  .check-cell.checked { background: #e3f2fd; }
+  
+  /* Синяя подсветка для заполненных первых 5 колонок */
+  tbody.emp-group.row-filled > tr > td.sticky-col-check,
+  tbody.emp-group.row-filled > tr > td.sticky-col-1,
+  tbody.emp-group.row-filled > tr > td.sticky-col-2,
+  tbody.emp-group.row-filled > tr > td.sticky-col-3,
+  tbody.emp-group.row-filled > tr > td.sticky-col-4 {
+    background-color: rgba(33, 150, 243, 0.15) !important; /* Почти прозрачный синий */
+  }
+
+  .resizer { position: absolute; top: 0; right: 0; width: 6px; cursor: col-resize; user-select: none; height: 100%; z-index: 20; background: transparent; }
+  .resizer:hover, .resizer.is-resizing { background: #f39c12; }
+  #timesheet th { position: relative; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  
+  .day-cell { width: 26px; padding: 0; position: relative; }
+  
+  .day-cell input {
+    width: 100%; height: 20px; border: none; text-align: center;
+    font-size: 11px; box-sizing: border-box; background: transparent;
+    cursor: cell; outline: none; caret-color: transparent;
+    -webkit-user-select: none; user-select: none;
+  }
+  
+  .day-cell input.is-editing {
+    caret-color: auto;
+    -webkit-user-select: text; user-select: text;
+    cursor: text;
+  }
+  
+  .day-cell input.is-editing:focus { outline: none; z-index: 2; position: relative; }
+  
+  .day-cell input::-webkit-outer-spin-button, .day-cell input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  
+  .day-cell.inactive { background: #e0e0e0; }
+  .day-cell.inactive input { pointer-events: none; opacity: 0; }
+
+  .day-cell.range-fill { background-color: rgba(33, 150, 243, 0.12) !important; }
+  .day-cell.active-cell { outline: 1.5px dashed #1565c0; outline-offset: -2px; z-index: 3; }
+
+  .total-col { background: #fef9e7; width: 64px; min-width: 64px; font-weight: bold; font-size: 10px; }
+  .total-col.range-fill { background-color: rgba(33, 150, 243, 0.12) !important; }
+  
+  tr.attendance-row td { border-bottom: 1px dashed #bbb; }
+  tr.attendance-row td.sticky-col-1, tr.attendance-row td.sticky-col-2, tr.attendance-row td.sticky-col-3, tr.attendance-row td.sticky-col-4, tr.attendance-row td.sticky-col-check { border-bottom: 1px solid #d0d0d0; }
+  
+  body.paint-mode .day-cell { cursor: crosshair; }
+  body.paint-mode .day-cell input { cursor: crosshair; pointer-events: none; }
+  body.paint-mode .day-cell:hover { box-shadow: inset 0 0 0 2px #f39c12; }
+  body.paint-mode #timesheet th[id^="header-day-"] { cursor: crosshair; }
+  body.paint-mode #timesheet th[id^="header-day-"]:hover { box-shadow: inset 0 0 0 2px #f39c12; }
+
+  body.is-resizing,
+  body.is-resizing * { cursor: col-resize !important; user-select: none !important; }
+
+  .selection-rect {
+    position: absolute;
+    pointer-events: none;
+    border: 2px solid #1565c0;
+    box-sizing: border-box;
+    z-index: 8;
+    display: none;
+  }
+  .copy-rect {
+    position: absolute;
+    pointer-events: none;
+    border: 2px dashed #2196f3;
+    box-sizing: border-box;
+    z-index: 9;
+    display: none;
+  }
+  
+  /* Стиль для маркера автозаполнения */
+  .autofill-handle {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background-color: #1565c0;
+    border: 1px solid #fff;
+    cursor: crosshair;
+    z-index: 50;
+    display: none;
+    box-sizing: border-box;
+  }
+  .autofill-handle.active {
+    display: block;
+  }
+
+  .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 1000;
+    display: none;
+  }
+  .modal-overlay.open { display: block; }
+  .modal {
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    padding: 16px 20px 20px;
+    max-width: 460px;
+    width: 92%;
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+  }
+  .modal.dragged { transform: none; }
+
+  .cal-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 12px;
+    user-select: none;
+  }
+  .cal-title {
+    flex: 1;
+    text-align: center;
+    font-size: 16px;
+    font-weight: bold;
+    color: #333;
+    cursor: move;
+    padding: 4px 8px;
+    border-radius: 4px;
+  }
+  .cal-title:hover { background: #f5f5f5; }
+  .cal-nav-btn {
+    width: 32px; height: 32px;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s;
+  }
+  .cal-nav-btn:hover { background: #f0f0f0; }
+  .cal-year-select {
+    padding: 6px 8px;
+    font-size: 13px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: #fff;
+    cursor: pointer;
+  }
+  .cal-today-btn {
+    padding: 6px 10px;
+    font-size: 12px;
+    border: 1px solid #9c27b0;
+    background: #f3e5f5;
+    border-radius: 4px;
+    cursor: pointer;
+    color: #6a1b9a;
+    font-weight: bold;
+    white-space: nowrap;
+  }
+  .cal-today-btn:hover { background: #e1bee7; }
+
+  .modal .modal-close {
+    position: absolute;
+    top: 8px; right: 10px;
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #999;
+    padding: 0;
+    line-height: 1;
+    z-index: 2;
+  }
+  .modal .modal-close:hover { color: #333; }
+
+  .cal-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  .cal-table th {
+    background: #f5f5f5;
+    font-weight: bold;
+    color: #666;
+    padding: 6px 0;
+    font-size: 12px;
+    border: 1px solid #eee;
+    text-align: center;
+  }
+  .cal-table td {
+    padding: 8px 0;
+    text-align: center;
+    font-size: 13px;
+    border: 1px solid #eee;
+    height: 36px;
+    box-sizing: border-box;
+    position: relative;
+  }
+  .cal-table td.weekend { background-color: #fce4e4; }
+  .cal-table td.holiday { background-color: #ff9999; color: #7a0000; font-weight: bold; }
+  .cal-table td.regional { background-color: #c6e0b4; color: #1e5c1e; font-weight: bold; }
+  .cal-table td.empty { background: #fafafa; }
+  .cal-table td.today { box-shadow: inset 0 0 0 2px #2196f3; font-weight: bold; }
+  .cal-table td[title]:hover { outline: 2px solid #2196f3; outline-offset: -2px; cursor: help; }
+
+  .cal-legend {
+    display: flex;
+    gap: 15px;
+    margin-top: 12px;
+    font-size: 11px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+  .cal-legend .lg-item { display: flex; align-items: center; gap: 5px; }
+  .cal-legend .lg-swatch { width: 14px; height: 14px; border: 1px solid #ccc; border-radius: 3px; }
+
+  /* Стили для модального окна мануала/инструкции */
+  .manual-modal-content {
+    max-height: 70vh;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #333;
+  }
+  .manual-modal-content h3 {
+    margin-top: 16px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #2c3e50;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  .manual-modal-content ul {
+    padding-left: 20px;
+    margin-bottom: 12px;
+  }
+  .manual-modal-content li {
+    margin-bottom: 6px;
+  }
+  .manual-modal-content b {
+    color: #e67e22;
+  }
+  .manual-modal-content .authors {
+    margin-top: 20px;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+  }
+
+  /* Стили для выпадающего меню */
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    background-color: #fff;
+    min-width: 220px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 100;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    overflow: hidden;
+    margin-top: 4px;
+  }
+  .dropdown-content a {
+    color: #333;
+    padding: 10px 14px;
+    text-decoration: none;
+    display: block;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .dropdown-content a:hover {
+    background-color: #f1f1f1;
+  }
+  /* Показываем меню только при наличии класса .open */
+  .dropdown.open .dropdown-content {
+    display: block;
+  }
+
+  /* Стили для окна "О программе" */
+  .about-modal-content {
+    max-height: 70vh;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.6;
+    color: #333;
+    padding: 5px;
+  }
+  .about-modal-content h2 {
+    text-align: center;
+    margin-top: 0;
+    color: #2c3e50;
+  }
+  .about-modal-content .info-block {
+    background: #f8f9fa;
+    border-left: 4px solid #2196f3;
+    padding: 10px 15px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+  }
+  .about-modal-content h3 {
+    margin-top: 15px;
+    margin-bottom: 8px;
+    font-size: 14px;
+    color: #2c3e50;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 4px;
+  }
+  .about-modal-content .version-item {
+    margin-bottom: 6px;
+    padding-left: 10px;
+    border-left: 2px solid #e0e0e0;
+  }
+  .about-modal-content .version-item b {
+    color: #e67e22;
+  }
+</style>
+</head>
+<body>
+
+<div class="controls-panel">
+  <div class="controls-row top">
+    <div class="group label-inline">
+      <label for="monthSelect">Месяц:</label>
+      <select id="monthSelect">
+        <option value="0">Январь</option><option value="1">Февраль</option><option value="2">Март</option>
+        <option value="3">Апрель</option><option value="4">Май</option><option value="5">Июнь</option>
+        <option value="6">Июль</option><option value="7">Август</option><option value="8">Сентябрь</option>
+        <option value="9">Октябрь</option><option value="10">Ноябрь</option><option value="11">Декабрь</option>
+      </select>
+      <label for="yearSelect">Год:</label>
+      <select id="yearSelect">
+        <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option>
+      </select>
+    </div>
+
+    <div class="paint-tools">
+      <div class="group">
+        <button class="btn-mode" id="paintModeBtn">🖌️ Заливка столбца: ВЫКЛ</button>
+        <div class="brush-palette-popup" id="brushPalettePopup">
+          <div class="color-swatch" data-color="#fce4e4" style="background:#fce4e4" title="Сб/Вс"></div>
+          <div class="color-swatch" data-color="#ff9999" style="background:#ff9999" title="Фед. праздник"></div>
+          <div class="color-swatch" data-color="#c6e0b4" style="background:#c6e0b4" title="Праздник РБ"></div>
+          <div class="palette-divider"></div>
+          <div class="color-swatch selected" data-color="#ffffff" style="background:#ffffff" title="Без цвета"></div>
+          <input type="color" id="paintColor" value="#ffffff">
+        </div>
+      </div>
+
+      <div class="group">
+        <button class="btn-mode" id="clearSelectedBtn">🗑️ Очистить лист</button>
+        <button class="btn-mode btn-autofill" id="autofillBtn">⏱️ Автозаполнение табеля</button>
+        <button class="btn-mode btn-auto-employee" id="autoEmployeeBtn">🤖 Авторежим по сотруднику: ВЫКЛ</button>
+        <button class="btn-mode btn-calendar" id="calendarBtn">📅 Календарь</button>
+        <button class="btn-mode btn-guide" id="guideBtn">📘 Инструкция</button>
+        <button class="btn-mode btn-manual" id="manualBtn">📖 Шпаргалка</button>
+        <button class="btn-mode btn-about" id="aboutBtn">ℹ️ О программе</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls-row bottom">
+    <div class="legend">
+      <div class="legend-item"><div class="legend-color bg-weekend"></div> Сб/Вс</div>
+      <div class="legend-item"><div class="legend-color bg-holiday"></div> Фед. праздник</div>
+      <div class="legend-item"><div class="legend-color bg-regional"></div> Праздник РБ</div>
+    </div>
+    <div class="right-actions">
+      <div class="history-tools">
+        <button class="btn-history" id="undoBtn" disabled title="Отменить (Ctrl+Z)">↩️ Отмена</button>
+        <button class="btn-history" id="redoBtn" disabled title="Повторить (Ctrl+Y)">↪️ Повтор</button>
+      </div>
+      <div class="dropdown" id="employeeDropdown">
+        <button class="btn-mode btn-employees" id="employeesMenuBtn">👥 Список сотрудников</button>
+        <div class="dropdown-content" id="employeesDropdownContent">
+          <a id="importExcelBtn">📥 Загрузить (импорт)</a>
+          <a id="exportExcelBtn">📤 Выгрузить (экспорт)</a>
+        </div>
+      </div>
+      <button class="btn-mode btn-primary" id="generateScriptBtn">⚡ Сгенерировать скрипт для ИСУ</button>
+    </div>
+  </div>
+</div>
+
+<div class="table-container">
+  <div class="table-wrap" id="tableWrap">
+    <table id="timesheet">
+      <colgroup>
+        <col data-col="0" style="width:32px">
+        <col data-col="1" style="width:40px">
+        <col data-col="2" style="width:180px">
+        <col data-col="3" style="width:80px">
+        <col data-col="4" style="width:150px">
+      </colgroup>
+      <thead>
+        <tr>
+          <th rowspan="2" class="sticky-col-check" id="th-check" title="Снять все галочки" style="cursor:pointer;">✔<div class="resizer" data-col="0"></div></th>
+          <th rowspan="2" class="sticky-col-1" id="th-1">№<div class="resizer" data-col="1"></div></th>
+          <th rowspan="2" class="sticky-col-2" id="th-2">Фамилия, имя, отчество<div class="resizer" data-col="2"></div></th>
+          <th rowspan="2" class="sticky-col-3" id="th-3">Таб.<br>номер<div class="resizer" data-col="3"></div></th>
+          <th rowspan="2" class="sticky-col-4" id="th-4">Должность<div class="resizer" data-col="4"></div></th>
+          <th colspan="15">Числа месяца (1-15)</th>
+          <th rowspan="2" class="total-col">Итого<br>1-15</th>
+          <th colspan="16" id="days-header-2">Числа месяца (16-31)</th>
+          <th rowspan="2" class="total-col">Всего<br>за месяц</th>
+        </tr>
+        <tr id="days-row"></tr>
+      </thead>
+    </table>
+    <div class="selection-rect" id="selectionRect"></div>
+    <div class="copy-rect" id="copyRect"></div>
+    <div class="autofill-handle" id="autofillHandle"></div>
+  </div>
+</div>
+
+<!-- Модальное окно Календаря -->
+<div class="modal-overlay" id="calendarModal">
+  <div class="modal" id="calendarModalBox">
+    <button class="modal-close" id="calendarCloseBtn" title="Закрыть">✕</button>
+    <div class="cal-header">
+      <button class="cal-nav-btn" id="calPrevBtn" title="Предыдущий месяц">◀</button>
+      <div class="cal-title" id="calendarTitle">Месяц</div>
+      <button class="cal-nav-btn" id="calNextBtn" title="Следующий месяц">▶</button>
+      <select class="cal-year-select" id="calYearSelect"></select>
+      <button class="cal-today-btn" id="calTodayBtn" title="К текущему месяцу">Сегодня</button>
+    </div>
+    <table class="cal-table" id="calendarTable">
+      <thead>
+        <tr>
+          <th>Пн</th><th>Вт</th><th>Ср</th><th>Чт</th><th>Пт</th><th>Сб</th><th>Вс</th>
+        </tr>
+      </thead>
+      <tbody id="calendarBody"></tbody>
+    </table>
+    <div class="cal-legend">
+      <div class="lg-item"><div class="lg-swatch" style="background:#fce4e4;border-color:#e0b0b0;"></div> Сб/Вс</div>
+      <div class="lg-item"><div class="lg-swatch" style="background:#ff9999;border-color:#d08080;"></div> Фед. праздник</div>
+      <div class="lg-item"><div class="lg-swatch" style="background:#c6e0b4;border-color:#8fb37a;"></div> Праздник РБ</div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно Инструкции -->
+<div class="modal-overlay" id="guideModal">
+  <div class="modal" id="guideModalBox" style="max-width: 700px;">
+    <button class="modal-close" id="guideCloseBtn" title="Закрыть">✕</button>
+    <div class="manual-modal-content">
+      <h2 style="text-align: center; margin-top: 0; color: #333;">📘 Пошаговая инструкция</h2>
+      
+      <div class="info-block" style="background: #f8f9fa; border-left: 4px solid #e91e63; padding: 10px 15px; margin-bottom: 15px; border-radius: 4px;">
+        <b>Цель:</b> Заполнить табель в программе и перенести данные в ИСУ без рутинного ручного ввода.
+      </div>
+
+      <h3>Шаг 1. Настройка месяца и года</h3>
+      <ul>
+        <li>В верхней панели выберите нужный **месяц** и **год** из выпадающих списков.</li>
+        <li>Таблица автоматически перестроится под выбранный месяц (учтутся выходные и праздники).</li>
+      </ul>
+
+      <h3>Шаг 2. Проверка списка сотрудников</h3>
+      <ul>
+        <li>По умолчанию загружен список сотрудников вашей кафедры.</li>
+        <li>Если нужно изменить список — нажмите **«👥 Список сотрудников»** → **«📥 Загрузить (импорт)»** и выберите файл Excel с колонками <i>«ФИО», «Таб. номер», «Должность»</i>.</li>
+        <li>Для резервной копии списка используйте **«📤 Выгрузить (экспорт)»** — он сохранит текущий список в файл Excel.</li>
+      </ul>
+
+      <h3>Шаг 3. Заполнение данных</h3>
+      <ul>
+        <li><b>Вариант А (быстрый):</b> Нажмите **«⏱️ Автозаполнение табеля»**. Программа сама проставит часы и явки на основе должностей (инженер, лаборант, доцент и т.д.) и производственного календаря.</li>
+        <li><b>Вариант Б (пошаговый):</b> Нажмите **«🤖 Авторежим по сотруднику: ВКЛ»**. Программа будет подсвечивать текущего сотрудника большой синей рамкой. Вы вводите данные, затем нажимаете **Пробел** (или ставите галочку) — и программа автоматически переходит к следующему сотруднику. Одиночный клик по другому сотруднику также включает для него авторежим (удобно, если нужно что-то поправить).</li>
+        <li><b>Вариант В (вручную):</b> Просто кликайте по ячейкам и вводите значения (двойной клик — начать редактирование). Значения: <b>«Ф»</b> — факт работы, <b>«В»</b> — выходной, <b>«Б»</b> — больничный и т.д. Также можно тянуть за синий квадрат в углу ячейки для копирования значений (как в Excel).</li>
+      </ul>
+
+      <h3>Шаг 4. Генерация скрипта для ИСУ</h3>
+      <ul>
+        <li>Убедитесь, что все данные заполнены и проверены.</li>
+        <li>Нажмите кнопку **«⚡ Сгенерировать скрипт для ИСУ»**.</li>
+        <li>Программа скопирует в буфер обмена готовый JavaScript-код.</li>
+      </ul>
+
+      <h3>Шаг 5. Перенос данных в ИСУ</h3>
+      <ul>
+        <li>Откройте страницу заполнения табеля в ИСУ.</li>
+        <li>Нажмите <b>F12</b> (или ПКМ → «Посмотреть код»), чтобы открыть консоль разработчика.</li>
+        <li>Перейдите на вкладку <b>«Консоль» (Console)</b>.</li>
+        <li>Вставьте скопированный скрипт (Ctrl+V) и нажмите <b>Enter</b>.</li>
+      </ul>
+
+      <!-- ДОБАВЛЕННЫЙ БЛОК ПРО ОШИБКУ -->
+      <div class="warning-block" style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 10px 15px; margin-bottom: 15px; border-radius: 4px; border: 1px solid #ffeeba;">
+        <b>⚠️ Если появилась ошибка:</b><br>
+        <i>«Warning: Don’t paste code into the DevTools Console that you don’t understand or haven’t reviewed yourself... Type "allow pasting" below and press Enter to allow pasting.»</i>
+        <br><br>
+        <b>Решение:</b>
+        <ol style="margin-top: 5px; padding-left: 20px;">
+          <li>В консоли (внизу, где мигает курсор) вручную (с клавиатуры) наберите фразу: <b style="color: #d9534f;">allow pasting</b></li>
+          <li>Нажмите <b>Enter</b>.</li>
+          <li>После этого снова вставьте скрипт (Ctrl+V) и нажмите <b>Enter</b>. Ошибка больше не появится.</li>
+        </ol>
+        <p style="margin-top: 5px; font-size: 11px; color: #856404;">Это защитная мера браузера. Набирая текст вручную, вы подтверждаете, что понимаете, что делаете.</p>
+      </div>
+
+      <ul>
+        <li>Дождитесь сообщения <i>«✅ Заполнение завершено!»</i> и проверьте, что данные встали верно.</li>
+        <li>Сохраните форму в ИСУ.</li>
+      </ul>
+
+      <h3>Дополнительные возможности</h3>
+      <ul>
+        <li><b>🖌️ Заливка столбца</b> — позволяет закрашивать столбцы вручную (например, выделить праздники или отпуска).</li>
+        <li><b>📅 Календарь</b> — открывает производственный календарь с праздниками (для сверки).</li>
+        <li><b>📖 Шпаргалка</b> — горячие клавиши и подсказки по работе.</li>
+      </ul>
+
+      <div class="authors">
+        <b>Совет:</b> Если что-то пошло не так — нажмите <b>Ctrl+Z</b> (Отмена) или <b>Ctrl+Y</b> (Повтор). История хранит до 50 последних действий.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно Мануала (Шпаргалка) -->
+<div class="modal-overlay" id="manualModal">
+  <div class="modal" id="manualModalBox" style="max-width: 700px;">
+    <button class="modal-close" id="manualCloseBtn" title="Закрыть">✕</button>
+    <div class="manual-modal-content">
+      <h2 style="text-align: center; margin-top: 0; color: #333;">📖 Шпаргалка по работе с табелем</h2>
+      
+      <h3>1. Основные кнопки</h3>
+      <ul>
+        <li><b>⏱️ Автозаполнение табеля</b> — автоматически заполняет часы и явки для всех сотрудников на основе их должностей и производственного календаря.</li>
+        <li><b>🤖 Авторежим по сотруднику</b> — пошаговое заполнение. Включает режим, при котором большая рамка охватывает выбранного сотрудника. Вы вводите данные, ставите галочку «Готово» (или жмете Пробел), и система автоматически переходит к следующему сотруднику.</li>
+        <li><b>📅 Календарь</b> — показывает производственный календарь с праздниками и выходными.</li>
+        <li><b>📖 Шпаргалка</b> — открывает это окно с подсказками.</li>
+        <li><b>👥 Список сотрудников</b> — выпадающее меню с возможностью импорта/экспорта списка сотрудников (ФИО, Таб. номер, Должность) в формате Excel.</li>
+      </ul>
+
+      <h3>2. Горячие клавиши (работают при выделенных ячейках)</h3>
+      <ul>
+        <li><b>Пробел</b> — поставить/снять галочку «Готово» для сотрудника, чья строка сейчас выделена большой рамкой.</li>
+        <li><b>Двойной Esc</b> — принудительно выключить авторежим.</li>
+        <li><b>Delete / Backspace</b> — очистить выделенные ячейки (значения).</li>
+        <li><b>Ctrl + C</b> / <b>Ctrl + V</b> — копировать / вставить значения ячеек.</li>
+        <li><b>Ctrl + X</b> — вырезать значения ячеек.</li>
+        <li><b>Enter</b> — перейти к ячейке ниже (в режиме редактирования — сохранить и перейти).</li>
+        <li><b>F2</b> — начать редактирование выделенной ячейки.</li>
+        <li><b>Ctrl + Z</b> / <b>Ctrl + Y</b> — отменить / повторить действие.</li>
+      </ul>
+
+      <h3>3. Управление мышью</h3>
+      <ul>
+        <li><b>Одинарный клик</b> по ячейке — выделяет её (рисует тонкую синюю рамку). В авторежиме большая рамка сотрудника не сбрасывается.</li>
+        <li><b>Двойной клик</b> по ячейке дня — открывает режим редактирования значения.</li>
+        <li><b>Двойной клик</b> по столбцам «ФИО», «Таб. номер» или «Должность» — мгновенно включает авторежим для этого сотрудника.</li>
+        <li><b>Выделение мышью</b> (зажать ЛКМ и тянуть) — выделяет диапазон ячеек.</li>
+        <li><b>Перетягивание за маркер</b> (маленький синий квадрат в правом нижнем углу выделенной ячейки) — копирует значения вниз или в сторону, как в Excel.</li>
+      </ul>
+
+      <h3>4. Особенности интерфейса</h3>
+      <ul>
+        <li><b>Большая синяя рамка</b> — показывает, для какого сотрудника сейчас открыт авторежим. Она охватывает все дни и итоговые столбцы.</li>
+        <li><b>Тонкая синяя рамка</b> (пунктир) — показывает текущую активную ячейку, с которой вы работаете.</li>
+        <li><b>Синяя галочка</b> — означает, что сотрудник полностью заполнен и проверен.</li>
+        <li><b>Синяя подсветка первых 5 колонок</b> — появляется, когда в строке сотрудника есть хотя бы одно значение (день или часы).</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- Модальное окно О программе -->
+<div class="modal-overlay" id="aboutModal">
+  <div class="modal" id="aboutModalBox" style="max-width: 700px;">
+    <button class="modal-close" id="aboutCloseBtn" title="Закрыть">✕</button>
+    <div class="about-modal-content">
+      <h2>ℹ️ ИСУ-Табель Экспресс</h2>
+      
+      <div class="info-block">
+        <b>Назначение:</b> Инструмент для <b>быстрого</b> учета рабочего времени сотрудников кафедры с возможностью генерации скрипта для автоматического заполнения в системе ИСУ. Создан, чтобы избавить вас от муторного ручного ввода в ИСУ.
+      </div>
+
+      <h3>Авторы и разработка</h3>
+      <ul>
+        <li><b>Идея и требования:</b> Сафаргалиев Д.И.</li>
+        <li><b>Разработка и код:</b> Сафаргалиев Д.И., DeepSeek AI</li>
+        <li><b>Год разработки:</b> 2026</li>
+      </ul>
+
+      <div class="info-block" style="border-left-color: #e91e63;">
+        <b>📬 Обратная связь:</b> По всем вопросам, пожеланиям, замечаниям и словам благодарности пишите на <b>danirsafargaliev@gmail.com</b>
+      </div>
+
+      <h3>История изменений</h3>
+      <div class="version-item"><b>Версия 1.0</b> — Базовый шаблон табеля (строки сотрудников, дни месяца, итоги).</div>
+      <div class="version-item"><b>Версия 1.1</b> — Добавлены стили для фиксированных колонок (№, ФИО, Таб. номер, Должность) и возможность изменения ширины столбцов.</div>
+      <div class="version-item"><b>Версия 1.2</b> — Добавлена панель инструментов: «Заливка столбца» с палитрой цветов.</div>
+      <div class="version-item"><b>Версия 1.3</b> — Добавлена кнопка «Автозаполнение часов» с логикой расчета по должностям.</div>
+      <div class="version-item"><b>Версия 1.4</b> — Добавлено модальное окно «Календарь» (с праздниками и возможностью перетаскивания).</div>
+      <div class="version-item"><b>Версия 1.5</b> — Добавлен «Авторежим по сотруднику» (пошаговое заполнение с рамкой).</div>
+      <div class="version-item"><b>Версия 1.6</b> — Добавлена кнопка «Сгенерировать скрипт для ИСУ» (автоматическое заполнение интерфейса ИСУ).</div>
+      <div class="version-item"><b>Версия 1.7</b> — Добавлена возможность выделения ячеек (рамка) и копирования/вставки (Ctrl+C/V, Delete).</div>
+      <div class="version-item"><b>Версия 1.8</b> — Добавлена кнопка «Очистить лист» (сброс всех данных).</div>
+      <div class="version-item"><b>Версия 1.9</b> — Добавлена история действий (Отмена/Повтор, Ctrl+Z/Y).</div>
+      <div class="version-item"><b>Версия 1.10</b> — Добавлена кнопка «Ввод по выделению» (массовый ввод значений).</div>
+      <div class="version-item"><b>Версия 2.0</b> — Добавлен мануал («Шпаргалка»).</div>
+      <div class="version-item"><b>Версия 2.1</b> — Добавлены кнопки импорта/экспорта списка сотрудников в Excel.</div>
+      <div class="version-item"><b>Версия 2.2</b> — Реализован двойной клик по ФИО/Таб. номеру/Должности для включения авторежима.</div>
+      <div class="version-item"><b>Версия 2.3</b> — Исправлено поведение большой рамки: она больше не сбрасывается при клике на других сотрудников.</div>
+      <div class="version-item"><b>Версия 2.4</b> — Убран оранжевый outline при редактировании ячейки. Исправлена проблема с последним столбцом в рамке.</div>
+      <div class="version-item"><b>Версия 2.5</b> — Добавлен двойной Esc для выключения авторежима.</div>
+      <div class="version-item"><b>Версия 2.6</b> — Кнопки импорта/экспорта объединены в выпадающее меню «Список сотрудников» (открывается только по клику).</div>
+      <div class="version-item"><b>Версия 2.7</b> — В мануал добавлена информация «О программе» и «История версий».</div>
+      <div class="version-item"><b>Версия 2.8</b> — Вынесена отдельная кнопка «О программе» с полной историей версий.</div>
+      <div class="version-item"><b>Версия 2.9</b> — Присвоено название <b>«ИСУ-Табель Экспресс»</b> с акцентом на скорость заполнения.</div>
+      <div class="version-item"><b>Версия 3.0</b> — Добавлена кнопка «Инструкция» с пошаговым руководством; убраны чекбоксы «Готово/Заполнено» из легенды; кнопки «Отмена/Повтор» перенесены перед «Список сотрудников».</div>
+      <div class="version-item"><b>Версия 3.1</b> — В инструкцию добавлен раздел про ошибку браузера с защитой вставки кода (решение через <b>allow pasting</b>).</div>
+      <div class="version-item"><b>Версия 3.2</b> — Удалена кнопка «Ввод по выделению». Добавлена функция автозаполнения перетягиванием (маркер в углу ячейки, как в Excel). Добавлен email для обратной связи в окно «О программе».</div>
+      <div class="version-item"><b>Версия 3.3</b> — Исправлена работа отмены (Ctrl+Z) при ручном вводе текста. Теперь действие сохраняется в историю целиком при завершении редактирования ячейки (по нажатию Enter или клику в другое место).</div>
+    </div>
+  </div>
+</div>
+
+<!-- Скрытый input для загрузки файлов -->
+<input type="file" id="excelInput" accept=".xlsx, .xls" style="display: none;">
+
+<script>
+const federalHolidays = ['01-01','01-02','01-03','01-04','01-05','01-06','01-07','01-08','02-23','03-08','05-01','05-09','06-12','11-04'];
+const regionalStatic = ['10-11'];
+const regionalDynamic = {'2024':['04-10','06-16'],'2025':['03-30','06-06'],'2026':['03-20','05-27']};
+
+const holidayNames = {
+  '01-01': 'Новый год','01-02': 'Новогодние каникулы','01-03': 'Новогодние каникулы',
+  '01-04': 'Новогодние каникулы','01-05': 'Новогодние каникулы','01-06': 'Новогодние каникулы',
+  '01-07': 'Рождество Христово','01-08': 'Новогодние каникулы',
+  '02-23': 'День защитника Отечества','03-08': 'Международный женский день',
+  '05-01': 'Праздник Весны и Труда','05-09': 'День Победы',
+  '06-12': 'День России','11-04': 'День народного единства',
+  '10-11': 'День Республики Башкортостан',
+  '04-10': 'Ураза-байрам','06-16': 'Курбан-байрам',
+  '03-30': 'Ураза-байрам','06-06': 'Курбан-байрам',
+  '03-20': 'Ураза-байрам','05-27': 'Курбан-байрам'
+};
+
+let employees = [];
+
+const table = document.getElementById('timesheet');
+const daysRow = document.getElementById('days-row');
+const monthSelect = document.getElementById('monthSelect');
+const yearSelect = document.getElementById('yearSelect');
+const tableWrap = document.getElementById('tableWrap');
+const selectionRect = document.getElementById('selectionRect');
+const copyRect = document.getElementById('copyRect');
+const brushPalettePopup = document.getElementById('brushPalettePopup');
+const paintModeBtn = document.getElementById('paintModeBtn');
+const autofillHandle = document.getElementById('autofillHandle');
+
+let selectedCells = new Set();
+let isSelecting = false;
+let startCell = null;
+let activeCell = null;
+let isPaintMode = false;
+let currentColor = '#ffffff';
+
+let isAutoEmployeeMode = false;
+let autoEmployeeIndex = -1;
+
+let undoStack = [];
+let redoStack = [];
+const MAX_HISTORY = 50;
+
+let readyRows = {};
+
+let clipboard = null;
+let copyRegion = null;
+
+let isResizing = false;
+let resizeState = null;
+
+let editingCell = null;
+let editingOriginal = '';
+let editingByTyping = false;
+let currentEditAction = null; // Для сохранения истории ввода
+
+let lastEscTime = 0;
+
+let isAutofillDragging = false;
+let autofillStartCell = null;
+
+function enterEditMode(inp, byTyping) {
+  if (!inp || inp.parentElement.classList.contains('inactive')) return;
+  
+  // Если уже что-то редактируется, сохраняем это перед началом нового
+  if (editingCell && editingCell !== inp) {
+    commitEditMode();
+  }
+  
+  editingCell = inp;
+  editingOriginal = inp.value;
+  editingByTyping = !!byTyping;
+  
+  // Создаем действие для истории именно для ЭТОЙ ячейки
+  currentEditAction = { type: 'text', changes: [{ cell: inp, oldValue: inp.value, newValue: inp.value }] };
+
+  inp.classList.add('is-editing');
+  inp.focus();
+  
+  if (byTyping) {
+    inp.value = ''; 
+    // Обновляем newValue, так как мы стерли значение для ввода
+    currentEditAction.changes[0].newValue = '';
+  } else {
+    try {
+      const len = inp.value.length;
+      inp.setSelectionRange(len, len);
+    } catch (e) {}
+  }
+}
+
+function commitEditMode() {
+  if (!editingCell) return;
+  const cell = editingCell;
+  
+  // Фиксируем конечное значение
+  if (currentEditAction && currentEditAction.changes.length > 0) {
+    currentEditAction.changes[0].newValue = cell.value;
+    // Сохраняем в историю только если значение реально изменилось
+    if (currentEditAction.changes[0].oldValue !== currentEditAction.changes[0].newValue) {
+      pushToHistory(currentEditAction);
+    }
+  }
+
+  editingCell = null; editingOriginal = ''; editingByTyping = false; currentEditAction = null;
+  cell.classList.remove('is-editing');
+  calculateTotals();
+  updateRowFilledStatus();
+}
+
+function cancelEditMode() {
+  if (!editingCell) return;
+  const cell = editingCell;
+  cell.value = editingOriginal;
+  editingCell = null; editingOriginal = ''; editingByTyping = false; currentEditAction = null;
+  cell.classList.remove('is-editing');
+  calculateTotals();
+  updateRowFilledStatus();
+  try { cell.blur(); } catch (e) {}
+}
+
+function isEditing() { return editingCell !== null; }
+
+function setupResizers() {
+  document.querySelectorAll('.resizer').forEach(resizer => {
+    resizer.addEventListener('mousedown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const colIndex = parseInt(resizer.dataset.col, 10);
+      const colEl = table.querySelector(`colgroup col[data-col="${colIndex}"]`);
+      if (!colEl) return;
+      resizeState = { colIndex, startX: e.clientX, startWidth: colEl.getBoundingClientRect().width, colEl };
+      isResizing = true;
+      document.body.classList.add('is-resizing');
+      resizer.classList.add('is-resizing');
+      if (isEditing()) commitEditMode();
+    });
+  });
+}
+document.addEventListener('mousemove', (e) => {
+  if (!isResizing || !resizeState) return;
+  const newW = Math.max(24, resizeState.startWidth + (e.clientX - resizeState.startX));
+  resizeState.colEl.style.width = newW + 'px';
+  updateStickyLefts();
+  requestAnimationFrame(() => { updateSelectionRect(); updateCopyRect(); });
+});
+document.addEventListener('mouseup', () => {
+  if (!isResizing) return;
+  isResizing = false;
+  document.body.classList.remove('is-resizing');
+  document.querySelectorAll('.resizer.is-resizing').forEach(r => r.classList.remove('is-resizing'));
+  resizeState = null;
+});
+function updateStickyLefts() {
+  const cols = table.querySelectorAll('colgroup col');
+  const widths = []; cols.forEach(col => widths.push(col.getBoundingClientRect().width));
+  const lefts = []; let x = 0;
+  for (let i = 0; i < widths.length; i++) { lefts[i] = x; x += widths[i]; }
+  const thCheck = document.getElementById('th-check');
+  const th1 = document.getElementById('th-1');
+  const th2 = document.getElementById('th-2');
+  const th3 = document.getElementById('th-3');
+  const th4 = document.getElementById('th-4');
+  if (thCheck) { thCheck.style.left = lefts[0] + 'px'; thCheck.style.width = widths[0] + 'px'; }
+  if (th1) { th1.style.left = lefts[1] + 'px'; th1.style.width = widths[1] + 'px'; }
+  if (th2) { th2.style.left = lefts[2] + 'px'; th2.style.width = widths[2] + 'px'; }
+  if (th3) { th3.style.left = lefts[3] + 'px'; th3.style.width = widths[3] + 'px'; }
+  if (th4) { th4.style.left = lefts[4] + 'px'; th4.style.width = widths[4] + 'px'; }
+  table.querySelectorAll('tbody.emp-group > tr').forEach(tr => {
+    for (const td of tr.children) {
+      if (td.classList.contains('sticky-col-check')) { td.style.left = lefts[0] + 'px'; td.style.width = widths[0] + 'px'; }
+      else if (td.classList.contains('sticky-col-1')) { td.style.left = lefts[1] + 'px'; td.style.width = widths[1] + 'px'; }
+      else if (td.classList.contains('sticky-col-2')) { td.style.left = lefts[2] + 'px'; td.style.width = widths[2] + 'px'; }
+      else if (td.classList.contains('sticky-col-3')) { td.style.left = lefts[3] + 'px'; td.style.width = widths[3] + 'px'; }
+      else if (td.classList.contains('sticky-col-4')) { td.style.left = lefts[4] + 'px'; td.style.width = widths[4] + 'px'; }
+    }
+  });
+}
+
+function getGroup(index) { return table.querySelector(`tbody.emp-group[data-emp-index="${index}"]`); }
+function getGroupRows(index) {
+  const g = getGroup(index);
+  if (!g) return [null, null];
+  return [g.querySelector('tr.attendance-row'), g.querySelector('tr.hours-row')];
+}
+function getAllRows() { return Array.from(table.querySelectorAll('tbody.emp-group > tr')); }
+function getCoords(input) {
+  const tr = input.closest('tr');
+  const allRows = getAllRows();
+  return { rIdx: allRows.indexOf(tr), dIdx: parseInt(input.dataset.dayIndex, 10) };
+}
+function getCellAt(rIdx, dIdx) {
+  const allRows = getAllRows();
+  const tr = allRows[rIdx];
+  if (!tr) return null;
+  const inp = tr.querySelector(`input[data-day-index="${dIdx}"]`);
+  if (!inp) return null;
+  if (inp.parentElement.classList.contains('inactive')) return null;
+  return inp;
+}
+
+function updateHistoryButtons() {
+  document.getElementById('undoBtn').disabled = undoStack.length === 0;
+  document.getElementById('redoBtn').disabled = redoStack.length === 0;
+}
+function pushToHistory(action) {
+  undoStack.push(action);
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack = [];
+  updateHistoryButtons();
+}
+
+function clearSelectionVisual() {
+  table.querySelectorAll('.range-fill').forEach(td => td.classList.remove('range-fill'));
+  table.querySelectorAll('.day-cell.active-cell').forEach(td => td.classList.remove('active-cell'));
+  selectionRect.style.display = 'none';
+  autofillHandle.classList.remove('active');
+}
+
+function updateSelectionRect() {
+  if (selectedCells.size === 0) { selectionRect.style.display = 'none'; autofillHandle.classList.remove('active'); return; }
+  const wrapRect = tableWrap.getBoundingClientRect();
+  let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+  let found = false;
+  selectedCells.forEach(inp => {
+    const td = inp.tagName === 'TD' ? inp : inp.parentElement;
+    if (!td) return;
+    if (!td.classList.contains('day-cell') && !td.classList.contains('total-col')) return;
+    found = true;
+    const r = td.getBoundingClientRect();
+    const left = r.left - wrapRect.left;
+    const top = r.top - wrapRect.top;
+    const right = left + r.width, bottom = top + r.height;
+    if (left < minLeft) minLeft = left;
+    if (top < minTop) minTop = top;
+    if (right > maxRight) maxRight = right;
+    if (bottom > maxBottom) maxBottom = bottom;
+  });
+  if (!found || !isFinite(minLeft)) { selectionRect.style.display = 'none'; autofillHandle.classList.remove('active'); return; }
+  selectionRect.style.display = 'block';
+  selectionRect.style.left = minLeft + 'px';
+  selectionRect.style.top = minTop + 'px';
+  selectionRect.style.width = (maxRight - minLeft) + 'px';
+  selectionRect.style.height = (maxBottom - minTop) + 'px';
+
+  if (!isAutofillDragging) {
+    autofillHandle.classList.add('active');
+    autofillHandle.style.left = (maxRight - 4) + 'px';
+    autofillHandle.style.top = (maxBottom - 4) + 'px';
+  } else {
+    autofillHandle.classList.remove('active');
+  }
+}
+function updateCopyRect() {
+  if (!copyRegion) { copyRect.style.display = 'none'; return; }
+  const { minR, maxR, minD, maxD } = copyRegion;
+  const cells = [];
+  for (let r = minR; r <= maxR; r++) {
+    for (let d = minD; d <= maxD; d++) {
+      const inp = getCellAt(r, d);
+      if (inp) cells.push(inp.parentElement);
+    }
+  }
+  if (cells.length === 0) { copyRect.style.display = 'none'; return; }
+  const wrapRect = tableWrap.getBoundingClientRect();
+  let minLeft = Infinity, minTop = Infinity, maxRight = -Infinity, maxBottom = -Infinity;
+  cells.forEach(td => {
+    const r = td.getBoundingClientRect();
+    const left = r.left - wrapRect.left;
+    const top = r.top - wrapRect.top;
+    const right = left + r.width, bottom = top + r.height;
+    if (left < minLeft) minLeft = left;
+    if (top < minTop) minTop = top;
+    if (right > maxRight) maxRight = right;
+    if (bottom > maxBottom) maxBottom = bottom;
+  });
+  if (!isFinite(minLeft)) { copyRect.style.display = 'none'; return; }
+  copyRect.style.display = 'block';
+  copyRect.style.left = minLeft + 'px';
+  copyRect.style.top = minTop + 'px';
+  copyRect.style.width = (maxRight - minLeft) + 'px';
+  copyRect.style.height = (maxBottom - minTop) + 'px';
+}
+
+function clearSelection() {
+  selectedCells.forEach(inp => { if (inp && inp.parentElement) inp.parentElement.classList.remove('selected'); });
+  selectedCells.clear();
+  activeCell = null;
+  clearSelectionVisual();
+}
+function addToSelection(inp) {
+  if (!inp || inp.parentElement.classList.contains('inactive')) return;
+  if (!selectedCells.has(inp)) selectedCells.add(inp);
+}
+function renderSelectionVisual() {
+  table.querySelectorAll('.range-fill').forEach(td => td.classList.remove('range-fill'));
+  table.querySelectorAll('.day-cell.active-cell').forEach(td => td.classList.remove('active-cell'));
+  selectedCells.forEach(inp => { 
+    const td = inp.tagName === 'TD' ? inp : inp.parentElement;
+    if (td) td.classList.add('range-fill'); 
+  });
+  if (activeCell && selectedCells.has(activeCell)) activeCell.parentElement.classList.add('active-cell');
+  updateSelectionRect();
+}
+function selectSingle(inp) {
+  clearSelection();
+  activeCell = inp;
+  addToSelection(inp);
+  renderSelectionVisual();
+}
+function setSelection(start, end) {
+  clearSelection();
+  if (!start || !end) return;
+  activeCell = start;
+  const allRows = getAllRows();
+  const sr = allRows.indexOf(start.closest('tr'));
+  const er = allRows.indexOf(end.closest('tr'));
+  const sd = parseInt(start.dataset.dayIndex), ed = parseInt(end.dataset.dayIndex);
+  const minR = Math.min(sr, er), maxR = Math.max(sr, er);
+  const minD = Math.min(sd, ed), maxD = Math.max(sd, ed);
+  for (let r = minR; r <= maxR; r++) {
+    const row = allRows[r]; if (!row) continue;
+    row.querySelectorAll('td.day-cell input[data-day-index]').forEach(inp => {
+      const d = parseInt(inp.dataset.dayIndex);
+      if (d >= minD && d <= maxD) addToSelection(inp);
+    });
+  }
+  renderSelectionVisual();
+}
+
+function selectAllDaysForEmployee(empIndex) {
+  const daysInMonth = new Date(parseInt(yearSelect.value), parseInt(monthSelect.value)+1, 0).getDate();
+  const allRows = getAllRows();
+  const tr1 = allRows[empIndex * 2];
+  const tr2 = allRows[empIndex * 2 + 1];
+  if (!tr1 || !tr2) return;
+
+  clearSelection();
+
+  tr1.querySelectorAll('td.day-cell input[data-day-index]').forEach(inp => {
+    const d = parseInt(inp.dataset.dayIndex);
+    if (d < daysInMonth) addToSelection(inp);
+  });
+  tr1.querySelectorAll('td.total-col').forEach(td => {
+    addToSelection(td);
+  });
+
+  tr2.querySelectorAll('td.day-cell input[data-day-index]').forEach(inp => {
+    const d = parseInt(inp.dataset.dayIndex);
+    if (d < daysInMonth) addToSelection(inp);
+  });
+  tr2.querySelectorAll('td.total-col').forEach(td => {
+    addToSelection(td);
+  });
+
+  renderSelectionVisual();
+}
+
+function updateRowFilledStatus() {
+  table.querySelectorAll('tbody.emp-group').forEach(group => {
+    const tr1 = group.querySelector('tr.attendance-row');
+    const tr2 = group.querySelector('tr.hours-row');
+    if (!tr1 || !tr2) return;
+    
+    const hasValue = Array.from(tr1.querySelectorAll('td.day-cell input')).some(inp => inp.value.trim() !== '') ||
+                     Array.from(tr2.querySelectorAll('td.day-cell input')).some(inp => inp.value.trim() !== '');
+                     
+    group.classList.toggle('row-filled', hasValue);
+  });
+}
+
+document.addEventListener('selectstart', (e) => {
+  const inp = e.target.closest && e.target.closest('.day-cell input');
+  if (!inp) return;
+  if (inp.classList.contains('is-editing')) return;
+  e.preventDefault();
+});
+
+autofillHandle.addEventListener('mousedown', (e) => {
+  if (selectedCells.size === 0) return;
+  e.preventDefault();
+  e.stopPropagation();
+  
+  isAutofillDragging = true;
+  autofillStartCell = activeCell;
+  
+  selectionRect.style.display = 'none';
+  autofillHandle.classList.remove('active');
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isAutofillDragging || !autofillStartCell) return;
+  
+  const targetTd = e.target.closest('td.day-cell');
+  let targetInput = null;
+  if (targetTd && !targetTd.classList.contains('inactive')) {
+    targetInput = targetTd.querySelector('input[data-day-index]');
+  }
+  
+  if (targetInput && targetInput !== autofillStartCell) {
+    const { rIdx: startR, dIdx: startD } = getCoords(autofillStartCell);
+    const { rIdx: endR, dIdx: endD } = getCoords(targetInput);
+    
+    let minR = Math.min(startR, endR);
+    let maxR = Math.max(startR, endR);
+    let minD = Math.min(startD, endD);
+    let maxD = Math.max(startD, endD);
+    
+    table.querySelectorAll('.range-fill').forEach(td => td.classList.remove('range-fill'));
+    
+    for (let r = minR; r <= maxR; r++) {
+      for (let d = minD; d <= maxD; d++) {
+        const inp = getCellAt(r, d);
+        if (inp) {
+          inp.parentElement.classList.add('range-fill');
+        }
+      }
+    }
+  }
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (!isAutofillDragging) return;
+  
+  isAutofillDragging = false;
+  
+  const targetTd = e.target.closest('td.day-cell');
+  let targetInput = null;
+  if (targetTd && !targetTd.classList.contains('inactive')) {
+    targetInput = targetTd.querySelector('input[data-day-index]');
+  }
+  
+  if (targetInput && autofillStartCell && targetInput !== autofillStartCell) {
+    const { rIdx: startR, dIdx: startD } = getCoords(autofillStartCell);
+    const { rIdx: endR, dIdx: endD } = getCoords(targetInput);
+    
+    const startValue = autofillStartCell.value;
+    
+    let targetMinR = Math.min(startR, endR);
+    let targetMaxR = Math.max(startR, endR);
+    let targetMinD = Math.min(startD, endD);
+    let targetMaxD = Math.max(startD, endD);
+    
+    if (endR > startR) {
+      targetMinR = startR + 1;
+      targetMaxR = endR;
+      targetMinD = startD;
+      targetMaxD = startD;
+    }
+    else if (endD > startD) {
+      targetMinR = startR;
+      targetMaxR = startR;
+      targetMinD = startD + 1;
+      targetMaxD = endD;
+    }
+    
+    const changes = [];
+    for (let r = targetMinR; r <= targetMaxR; r++) {
+      for (let d = targetMinD; d <= targetMaxD; d++) {
+        const inp = getCellAt(r, d);
+        if (inp && inp.value !== startValue) {
+          changes.push({ cell: inp, oldValue: inp.value, newValue: startValue });
+          inp.value = startValue;
+        }
+      }
+    }
+    
+    if (changes.length > 0) {
+      pushToHistory({ type: 'text', changes });
+      calculateTotals();
+      updateRowFilledStatus();
+    }
+  }
+  
+  renderSelectionVisual();
+  autofillStartCell = null;
+});
+
+document.addEventListener('mousedown', (e) => {
+  if (isResizing || isAutofillDragging) return;
+
+  const inp = e.target.closest('input');
+  if (!inp || inp.parentElement.classList.contains('inactive')) {
+    if (isEditing()) commitEditMode();
+    return;
+  }
+  if (isPaintMode) { e.preventDefault(); return; }
+  if (isEditing() && editingCell !== inp) commitEditMode();
+
+  if (e.ctrlKey || e.metaKey) {
+    if (selectedCells.has(inp)) {
+      selectedCells.delete(inp);
+      inp.parentElement.classList.remove('range-fill');
+      if (activeCell === inp) activeCell = null;
+    } else {
+      addToSelection(inp);
+      if (!activeCell) activeCell = inp;
+    }
+    renderSelectionVisual();
+    return;
+  }
+  if (e.shiftKey && selectedCells.size > 0) {
+    const start = activeCell || Array.from(selectedCells)[0];
+    setSelection(start, inp);
+    return;
+  }
+  
+  // В авторежиме выделение мышью работает как обычно (большая рамка на tbody не сбрасывается)
+  selectSingle(inp);
+  startCell = inp; isSelecting = true;
+});
+document.addEventListener('mouseover', (e) => {
+  if (!isSelecting || isResizing || isAutofillDragging) return;
+  // Ищем input даже если курсор над td, а не над самим input
+  const td = e.target.closest('td.day-cell');
+  const inp = td ? td.querySelector('input[data-day-index]') : e.target.closest('input');
+  if (inp && !inp.parentElement.classList.contains('inactive')) setSelection(startCell, inp);
+});
+document.addEventListener('mouseup', () => { if (isSelecting) { isSelecting = false; startCell = null; } });
+
+document.addEventListener('dblclick', (e) => {
+  if (isResizing || isAutofillDragging) return;
+  
+  const tdInfo = e.target.closest('.sticky-col-2, .sticky-col-3, .sticky-col-4');
+  if (tdInfo) {
+    const tbody = tdInfo.closest('tbody.emp-group');
+    if (tbody) {
+      const empIndex = parseInt(tbody.dataset.empIndex);
+      if (!isNaN(empIndex)) {
+        isAutoEmployeeMode = true;
+        const btn = document.getElementById('autoEmployeeBtn');
+        if (btn) {
+          btn.classList.add('active'); 
+          btn.innerHTML = '🤖 Авторежим по сотруднику: ВКЛ';
+        }
+        fillOneEmployee(empIndex, true);
+        setAutoCurrentVisual(empIndex);
+        setTimeout(() => focusFirstCellOfEmployee(empIndex), 100);
+        return;
+      }
+    }
+  }
+
+  const inp = e.target.closest('input');
+  if (!inp || inp.parentElement.classList.contains('inactive')) return;
+  if (isPaintMode) return;
+  
+  if (!isAutoEmployeeMode) {
+    selectSingle(inp);
+  } else {
+    activeCell = inp;
+    renderSelectionVisual();
+  }
+  
+  enterEditMode(inp, false);
+});
+
+document.addEventListener('click', (e) => {
+  if (!isPaintMode || isResizing || isAutofillDragging) return;
+
+  const td = e.target.closest('td.day-cell');
+  if (!td || td.classList.contains('inactive')) return;
+
+  const inp = td.querySelector('input[data-day-index]');
+  if (!inp) return;
+
+  if (selectedCells.size === 0 || !selectedCells.has(inp)) {
+    clearSelection();
+    addToSelection(inp);
+    renderSelectionVisual();
+  }
+
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+  let action = { type: 'color', changes: [] };
+  const dayIndices = new Set();
+  selectedCells.forEach(cell => {
+    if (cell.dataset.dayIndex) dayIndices.add(parseInt(cell.dataset.dayIndex));
+  });
+
+  dayIndices.forEach(dayIndex => {
+    const day = dayIndex + 1;
+    const newColor = e.shiftKey ? null : currentColor;
+
+    const header = document.getElementById(`header-day-${dayIndex}`);
+    if (header) {
+      const oldColor = header.style.backgroundColor || null;
+      if (oldColor !== newColor) {
+        action.changes.push({ dayIndex, oldColor, newColor, isHeader: true });
+        if (newColor === null) { header.style.backgroundColor=''; header.style.color=''; header.style.fontWeight=''; setHeaderAutoColor(header, month, year, day); }
+        else { header.style.backgroundColor = newColor; header.style.color = isDarkColor(newColor) ? '#fff' : '#333'; }
+      }
+    }
+    const rows = table.querySelectorAll('tbody.emp-group > tr');
+    rows.forEach((row, rIdx) => {
+      const cellInput = row.querySelector(`td.day-cell input[data-day-index="${dayIndex}"]`);
+      if (cellInput) {
+        const tdc = cellInput.parentElement;
+        const oldColor = tdc.style.backgroundColor || null;
+        if (oldColor !== newColor) {
+          action.changes.push({ dayIndex, oldColor, newColor, rowIndex: rIdx });
+          if (newColor === null) { tdc.style.backgroundColor=''; setCellAutoColor(tdc, month, year, day); }
+          else { tdc.style.backgroundColor = newColor; }
+        }
+      }
+    });
+  });
+  if (action.changes.length > 0) pushToHistory(action);
+});
+
+document.querySelector('thead').addEventListener('click', (e) => {
+  if (!isPaintMode || isResizing || isAutofillDragging) return;
+  const th = e.target.closest('th[id^="header-day-"]');
+  if (!th) return;
+  const dayIndex = parseInt(th.dataset.dayIndex);
+  if (isNaN(dayIndex)) return;
+
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+  const day = dayIndex + 1;
+  const newColor = e.shiftKey ? null : currentColor;
+  let action = { type: 'color', changes: [] };
+
+  const oldHeaderColor = th.style.backgroundColor || null;
+  if (oldHeaderColor !== newColor) {
+    action.changes.push({ dayIndex, oldColor: oldHeaderColor, newColor, isHeader: true });
+    if (newColor === null) { th.style.backgroundColor=''; th.style.color=''; th.style.fontWeight=''; setHeaderAutoColor(th, month, year, day); }
+    else { th.style.backgroundColor = newColor; th.style.color = isDarkColor(newColor) ? '#fff' : '#333'; }
+  }
+  const rows = table.querySelectorAll('tbody.emp-group > tr');
+  rows.forEach((row, rIdx) => {
+    const cellInput = row.querySelector(`td.day-cell input[data-day-index="${dayIndex}"]`);
+    if (cellInput) {
+      const tdc = cellInput.parentElement;
+      const oldColor = tdc.style.backgroundColor || null;
+      if (oldColor !== newColor) {
+        action.changes.push({ dayIndex, oldColor, newColor, rowIndex: rIdx });
+        if (newColor === null) { tdc.style.backgroundColor=''; setCellAutoColor(tdc, month, year, day); }
+        else { tdc.style.backgroundColor = newColor; }
+      }
+    }
+  });
+  if (action.changes.length > 0) pushToHistory(action);
+});
+
+function getNextCellBelow(currentInput) {
+  const { rIdx, dIdx } = getCoords(currentInput);
+  const allRows = getAllRows();
+  for (let r = rIdx + 1; r < allRows.length; r++) {
+    const inp = getCellAt(r, dIdx);
+    if (inp) return inp;
+  }
+  return currentInput;
+}
+
+document.addEventListener('keydown', (e) => {
+  if (isResizing) return;
+  if (document.getElementById('calendarModal').classList.contains('open') || document.getElementById('manualModal').classList.contains('open') || document.getElementById('aboutModal').classList.contains('open') || document.getElementById('guideModal').classList.contains('open')) {
+    if (e.key === 'Escape') { e.preventDefault(); closeCalendar(); closeManual(); closeAbout(); closeGuide(); return; }
+    return;
+  }
+  const active = document.activeElement;
+  const activeIsOurInput = active && active.tagName === 'INPUT' && active.dataset.dayIndex !== undefined && table.contains(active);
+
+  if (e.code === 'Space' && !isEditing()) {
+    if (selectedCells.size > 0) {
+      e.preventDefault();
+      const firstCell = Array.from(selectedCells)[0];
+      if (firstCell) {
+        const tr = firstCell.closest('tr');
+        if (tr) {
+          const tbody = tr.closest('tbody.emp-group');
+          if (tbody) {
+            const empIndex = parseInt(tbody.dataset.empIndex);
+            if (!isNaN(empIndex)) {
+              const emp = employees[empIndex];
+              if (emp) {
+                toggleReady(empIndex, !readyRows[emp.id]);
+              }
+            }
+          }
+        }
+      }
+      return;
+    }
+  }
+
+  if (e.key === 'Escape') {
+    const now = Date.now();
+    if (now - lastEscTime < 500) {
+      if (isAutoEmployeeMode) {
+        e.preventDefault();
+        stopAutoEmployeeMode();
+        isAutoEmployeeMode = false;
+        const btn = document.getElementById('autoEmployeeBtn');
+        if (btn) {
+          btn.classList.remove('active'); 
+          btn.innerHTML = '🤖 Авторежим по сотруднику: ВЫКЛ';
+        }
+      }
+    }
+    lastEscTime = now;
+
+    if (isEditing()) {
+      e.preventDefault(); e.stopPropagation();
+      cancelEditMode();
+    }
+    clipboard = null;
+    copyRegion = null;
+    updateCopyRect();
+    return;
+  }
+
+  if (e.key === 'F2') {
+    if (isEditing()) return;
+    let target = activeIsOurInput ? active : (activeCell || (selectedCells.size > 0 ? Array.from(selectedCells)[0] : null));
+    if (target) { e.preventDefault(); enterEditMode(target, false); return; }
+  }
+
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    let nextInput = null;
+    if (isEditing()) {
+      const cur = editingCell;
+      commitEditMode();
+      nextInput = getNextCellBelow(cur);
+    } else if (activeIsOurInput) {
+      nextInput = getNextCellBelow(active);
+    } else if (activeCell) {
+      nextInput = getNextCellBelow(activeCell);
+    } else if (selectedCells.size > 0) {
+      nextInput = getNextCellBelow(Array.from(selectedCells)[0]);
+    }
+    if (nextInput && !nextInput.parentElement.classList.contains('inactive')) {
+      selectSingle(nextInput);
+      nextInput.focus();
+      try { const len = nextInput.value.length; nextInput.setSelectionRange(len, len); } catch (err) {}
+    }
+    return;
+  }
+
+  if (!isEditing() && !isPaintMode) {
+    let target = null;
+    if (activeIsOurInput) target = active;
+    else if (activeCell) target = activeCell;
+    else if (selectedCells.size > 0) target = Array.from(selectedCells)[0];
+    if (target) {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key.length === 1 && !e.nativeEvent.isComposing) {
+        e.preventDefault();
+        if (!selectedCells.has(target)) selectSingle(target);
+        // Начинаем редактирование с пустого значения
+        enterEditMode(target, true);
+        // Вводим первый символ
+        target.value = e.key;
+        try { target.setSelectionRange(1, 1); } catch (err) {}
+        calculateTotals();
+        return;
+      }
+    }
+  }
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  const ctrl = isMac ? e.metaKey : e.ctrlKey;
+  if (!ctrl) return;
+  
+  if (e.code === 'KeyZ' && !e.shiftKey) { 
+    e.preventDefault(); e.stopPropagation(); 
+    if (isEditing()) {
+      cancelEditMode();
+    } else {
+      undo();
+    }
+    return; 
+  }
+  if (e.code === 'KeyY' || (e.code === 'KeyZ' && e.shiftKey)) { 
+    e.preventDefault(); e.stopPropagation(); 
+    if (!isEditing()) redo(); 
+    return; 
+  }
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  const isMac = /Mac|iPhone|iPad/.test(navigator.platform || navigator.userAgent);
+  const ctrl = isMac ? e.metaKey : e.ctrlKey;
+  if (!ctrl) return;
+  const active = document.activeElement;
+  const activeInTable = active && active.tagName === 'INPUT' && table.contains(active);
+
+  if (e.code === 'KeyC') {
+    if (activeInTable || selectedCells.size > 0) {
+      e.preventDefault(); e.stopPropagation();
+      copySelectedCells('copy');
+    }
+    return;
+  }
+  if (e.code === 'KeyX') {
+    if (activeInTable || selectedCells.size > 0) {
+      e.preventDefault(); e.stopPropagation();
+      copySelectedCells('cut');
+    }
+    return;
+  }
+  if (e.code === 'KeyV') {
+    if (clipboard) { e.preventDefault(); e.stopPropagation(); pasteCells(); }
+    return;
+  }
+}, true);
+
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Delete' && e.key !== 'Backspace') return;
+  if (isEditing()) return;
+  if (selectedCells.size === 0) return;
+  e.preventDefault();
+  clearSelectedCells(false);
+}, true);
+
+function clearSelectedCells(clearColor = false) {
+  const textChanges = [];
+  const colorChanges = [];
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+
+  let targets = [];
+  if (selectedCells.size > 0) {
+    targets = Array.from(selectedCells).filter(c => c.tagName === 'INPUT');
+  } else {
+    table.querySelectorAll('tbody.emp-group input[data-day-index]').forEach(inp => {
+      const v = inp.value.trim();
+      if (v !== '') targets.push(inp);
+    });
+  }
+
+  targets.forEach(cell => {
+    if (!cell) return;
+    const td = cell.parentElement;
+    if (!td) return;
+    if (td.classList.contains('inactive')) return;
+
+    const oldValue = cell.value;
+    if (oldValue !== '') {
+      cell.value = '';
+      textChanges.push({ cell, oldValue, newValue: '' });
+    }
+
+    if (clearColor) {
+      const dayIndex = parseInt(cell.dataset.dayIndex);
+      if (!isNaN(dayIndex)) {
+        const day = dayIndex + 1;
+        const oldColor = td.style.backgroundColor || null;
+        td.style.backgroundColor = '';
+        setCellAutoColor(td, month, year, day);
+        if (oldColor) colorChanges.push({ td, oldColor, newColor: null });
+      }
+    }
+  });
+
+  calculateTotals();
+  if (textChanges.length > 0) pushToHistory({ type: 'text', changes: textChanges });
+  if (colorChanges.length > 0) pushToHistory({ type: 'color', changes: colorChanges });
+  renderSelectionVisual();
+  updateRowFilledStatus();
+}
+document.getElementById('clearSelectedBtn').addEventListener('click', (e) => {
+  e.preventDefault();
+  if (isEditing()) cancelEditMode();
+  clearSheetAll();
+});
+
+function clearSheetAll() {
+  const textChanges = [];
+  const colorChanges = [];
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+
+  table.querySelectorAll('tbody.emp-group input[data-day-index]').forEach(cell => {
+    if (!cell) return;
+    const td = cell.parentElement;
+    if (!td) return;
+    if (td.classList.contains('inactive')) return;
+
+    const oldValue = cell.value;
+    if (oldValue !== '') {
+      cell.value = '';
+      textChanges.push({ cell, oldValue, newValue: '' });
+    }
+
+    const dayIndex = parseInt(cell.dataset.dayIndex);
+    if (!isNaN(dayIndex)) {
+      const day = dayIndex + 1;
+      const oldColor = td.style.backgroundColor || null;
+      td.style.backgroundColor = '';
+      setCellAutoColor(td, month, year, day);
+      if (oldColor) colorChanges.push({ td, oldColor, newColor: null });
+    }
+  });
+
+  calculateTotals();
+  if (textChanges.length > 0) pushToHistory({ type: 'text', changes: textChanges });
+  if (colorChanges.length > 0) pushToHistory({ type: 'color', changes: colorChanges });
+  renderSelectionVisual();
+  updateRowFilledStatus();
+}
+
+function copySelectedCells(mode) {
+  if (selectedCells.size === 0) return;
+  let minR = Infinity, maxR = -Infinity, minD = Infinity, maxD = -Infinity;
+  let hasInputs = false;
+  selectedCells.forEach(inp => {
+    if (inp.tagName !== 'INPUT') return;
+    hasInputs = true;
+    const { rIdx, dIdx } = getCoords(inp);
+    if (rIdx < minR) minR = rIdx;
+    if (rIdx > maxR) maxR = rIdx;
+    if (dIdx < minD) minD = dIdx;
+    if (dIdx > maxD) maxD = dIdx;
+  });
+  if (!hasInputs) return;
+  
+  const width = maxD - minD + 1;
+  const height = maxR - minR + 1;
+  const matrix = [];
+  for (let r = minR; r <= maxR; r++) {
+    const rowVals = [];
+    for (let d = minD; d <= maxD; d++) {
+      const inp = getCellAt(r, d);
+      rowVals.push(inp ? inp.value : '');
+    }
+    matrix.push(rowVals);
+  }
+  clipboard = { matrix, width, height };
+  copyRegion = { minR, maxR, minD, maxD };
+  updateCopyRect();
+  if (mode === 'cut') {
+    const changes = [];
+    selectedCells.forEach(cell => {
+      if (cell.tagName !== 'INPUT') return;
+      if (cell.value !== '') {
+        changes.push({ cell, oldValue: cell.value, newValue: '' });
+        cell.value = '';
+      }
+    });
+    if (changes.length > 0) {
+      pushToHistory({ type: 'text', changes });
+      calculateTotals();
+      updateRowFilledStatus();
+    }
+  }
+}
+
+function pasteCells() {
+  if (!clipboard) return;
+  const { matrix, width, height } = clipboard;
+  let targetRmin, targetRmax, targetDmin, targetDmax;
+  if (selectedCells.size > 0) {
+    if (selectedCells.size === 1) {
+      const anchor = activeCell || Array.from(selectedCells)[0];
+      const { rIdx: aR, dIdx: aD } = getCoords(anchor);
+      targetRmin = aR; targetDmin = aD;
+      targetRmax = aR + height - 1;
+      targetDmax = aD + width - 1;
+    } else {
+      let sMinR = Infinity, sMaxR = -Infinity, sMinD = Infinity, sMaxD = -Infinity;
+      selectedCells.forEach(inp => {
+        if (inp.tagName !== 'INPUT') return;
+        const { rIdx, dIdx } = getCoords(inp);
+        if (rIdx < sMinR) sMinR = rIdx;
+        if (rIdx > sMaxR) sMaxR = rIdx;
+        if (dIdx < sMinD) sMinD = dIdx;
+        if (dIdx > sMaxD) sMaxD = dIdx;
+      });
+      targetRmin = sMinR; targetRmax = sMaxR;
+      targetDmin = sMinD; targetDmax = sMaxD;
+    }
+  } else {
+    let anchor = activeCell || table.querySelector('tbody.emp-group input[data-day-index]');
+    if (!anchor) return;
+    const { rIdx: aR, dIdx: aD } = getCoords(anchor);
+    targetRmin = aR; targetDmin = aD;
+    targetRmax = aR + height - 1;
+    targetDmax = aD + width - 1;
+  }
+  const textChanges = [];
+  const rowsCount = targetRmax - targetRmin + 1;
+  const colsCount = targetDmax - targetDmin + 1;
+  for (let r = 0; r < rowsCount; r++) {
+    for (let c = 0; c < colsCount; c++) {
+      const tr = targetRmin + r;
+      const td = targetDmin + c;
+      const inp = getCellAt(tr, td);
+      if (!inp) continue;
+      const newVal = matrix[r % height][c % width];
+      if (inp.value !== newVal) {
+        textChanges.push({ cell: inp, oldValue: inp.value, newValue: newVal });
+        inp.value = newVal;
+      }
+    }
+  }
+  if (textChanges.length > 0) {
+    pushToHistory({ type: 'text', changes: textChanges });
+    calculateTotals();
+    updateRowFilledStatus();
+  }
+}
+
+function toggleReady(rowIndex, checked) {
+  const emp = employees[rowIndex]; if (!emp) return;
+  const action = { type: 'check', id: emp.id, oldValue: !!readyRows[emp.id], newValue: checked };
+  readyRows[emp.id] = checked;
+  applyReadyVisual(rowIndex, checked);
+  pushToHistory(action);
+  if (checked && isAutoEmployeeMode && rowIndex === autoEmployeeIndex) {
+    setTimeout(() => gotoNextAutoEmployee(), 150);
+  }
+}
+function applyReadyVisual(rowIndex, checked) {
+  const g = getGroup(rowIndex); if (!g) return;
+  g.classList.toggle('row-ready', checked);
+  g.querySelectorAll('tr').forEach(tr => tr.classList.toggle('row-ready', checked));
+  const checkCell = g.querySelector('.check-cell');
+  if (checkCell) {
+    checkCell.classList.toggle('checked', checked);
+    const mark = checkCell.querySelector('.check-mark');
+    if (mark) mark.textContent = checked ? '✓' : '';
+  }
+}
+function renderCheckCell(emp, index) {
+  const td = document.createElement('td');
+  td.className = 'sticky-col-check check-cell' + (readyRows[emp.id] ? ' checked' : '');
+  td.rowSpan = 2; td.dataset.empIndex = index;
+  td.title = 'Отметить строку как готовую';
+  td.innerHTML = '<span class="check-mark">' + (readyRows[emp.id] ? '✓' : '') + '</span>';
+  td.addEventListener('click', (e) => { e.stopPropagation(); toggleReady(index, !readyRows[emp.id]); });
+  return td;
+}
+
+function fillOneEmployee(empIndex, pushHistory = true) {
+  const emp = employees[empIndex]; if (!emp) return [];
+  const month = parseInt(monthSelect.value), year = parseInt(yearSelect.value);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const type = getPositionType(emp.pos); if (!type) return [];
+  const rate = getRate(emp.pos);
+  const [tr1, tr2] = getGroupRows(empIndex); if (!tr1 || !tr2) return [];
+  const inputsDays = tr1.querySelectorAll('input');
+  const inputsHours = tr2.querySelectorAll('input');
+  const changes = [];
+  for (let d = 0; d < daysInMonth; d++) {
+    const day = d + 1;
+    const date = new Date(year, month, day);
+    const dow = date.getDay();
+    const ht = getEffectiveHoliday(month, day, year);
+    const inpHours = inputsHours[d], inpDay = inputsDays[d];
+    if (!inpHours || !inpDay) continue;
+    if (dow === 0) {
+      if (inpDay.value !== 'В') { changes.push({ cell: inpDay, oldValue: inpDay.value, newValue: 'В' }); inpDay.value = 'В'; }
+      if (inpHours.value !== '') { changes.push({ cell: inpHours, oldValue: inpHours.value, newValue: '' }); inpHours.value = ''; }
+      continue;
+    }
+    if (ht) {
+      if (inpDay.value !== 'В') { changes.push({ cell: inpDay, oldValue: inpDay.value, newValue: 'В' }); inpDay.value = 'В'; }
+      if (inpHours.value !== '') { changes.push({ cell: inpHours, oldValue: inpHours.value, newValue: '' }); inpHours.value = ''; }
+      continue;
+    }
+    let val = null;
+    if (type === 'engineer') val = dow === 6 ? 5 * rate : 7 * rate;
+    else if (type === 'laborant') {
+      if (dow === 6) val = null;
+      else if (dow >= 1 && dow <= 4) val = rate >= 1 ? 8.25 : (rate === 0.25 ? 2 : Math.round(8.25 * rate * 100) / 100);
+      else if (dow === 5) val = rate >= 1 ? 7 : (rate === 0.25 ? 1 : Math.round(7 * rate * 100) / 100);
+    }
+    else val = 6 * rate;
+    if (val !== null && isPreHolidayForType(month, day, year, type)) { val = val - 1; if (val <= 0) val = null; }
+    let newHoursValue;
+    if (val === null) newHoursValue = '';
+    else if (type === 'laborant') {
+      if (Math.abs(val - 8.25) < 0.001) newHoursValue = '8.25';
+      else newHoursValue = String(Math.round(val * 100) / 100);
+    } else newHoursValue = String(Math.round(val * 100) / 100);
+    if (inpHours.value !== newHoursValue) {
+      changes.push({ cell: inpHours, oldValue: inpHours.value, newValue: newHoursValue });
+      inpHours.value = newHoursValue;
+    }
+    const hoursNum = parseFloat(newHoursValue) || 0;
+    const newDayValue = hoursNum > 0 ? 'Ф' : 'В';
+    if (inpDay.value !== newDayValue) {
+      changes.push({ cell: inpDay, oldValue: inpDay.value, newValue: newDayValue });
+      inpDay.value = newDayValue;
+    }
+  }
+  if (changes.length > 0 && pushHistory) pushToHistory({ type: 'text', changes });
+  calculateTotals();
+  updateRowFilledStatus();
+  return changes;
+}
+
+function setAutoCurrentVisual(newIndex) {
+  table.querySelectorAll('tbody.emp-group.row-auto-current').forEach(g => g.classList.remove('row-auto-current'));
+  autoEmployeeIndex = newIndex;
+  if (newIndex < 0) return;
+  const g = getGroup(newIndex);
+  if (g) {
+    g.classList.add('row-auto-current');
+    const tr1 = g.querySelector('tr.attendance-row');
+    if (tr1) tr1.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function focusFirstCellOfEmployee(index) {
+  const [tr1] = getGroupRows(index); if (!tr1) return;
+  selectAllDaysForEmployee(index);
+  const firstInput = tr1.querySelector('td.day-cell input[data-day-index="0"]');
+  if (firstInput && !firstInput.parentElement.classList.contains('inactive')) {
+    try { firstInput.focus(); } catch (e) {}
+  }
+}
+
+function gotoNextAutoEmployee() {
+  if (!isAutoEmployeeMode) return;
+  const total = employees.length; if (total === 0) return;
+  let startFrom = autoEmployeeIndex; if (startFrom < 0) startFrom = -1;
+  let foundIndex = -1;
+  for (let step = 1; step <= total; step++) {
+    const idx = (startFrom + step) % total;
+    if (!readyRows[employees[idx].id]) { foundIndex = idx; break; }
+  }
+  if (foundIndex === -1) {
+    alert('Все сотрудники отмечены как готовые! Авторежим завершён.');
+    clearSelection();
+    const btn = document.getElementById('autoEmployeeBtn'); if (btn) btn.click();
+    return;
+  }
+  fillOneEmployee(foundIndex, true);
+  setAutoCurrentVisual(foundIndex);
+  setTimeout(() => focusFirstCellOfEmployee(foundIndex), 100);
+}
+
+function startAutoEmployeeMode(startIndex = -1) {
+  if (startIndex === -1) {
+    for (let i = 0; i < employees.length; i++) {
+      if (!readyRows[employees[i].id]) { startIndex = i; break; }
+    }
+  }
+  
+  if (startIndex === -1) { alert('Все сотрудники уже отмечены как готовые!'); return false; }
+  
+  fillOneEmployee(startIndex, true);
+  setAutoCurrentVisual(startIndex);
+  setTimeout(() => focusFirstCellOfEmployee(startIndex), 100);
+  return true;
+}
+
+function stopAutoEmployeeMode() { 
+  setAutoCurrentVisual(-1); 
+  clearSelection();
+}
+document.getElementById('autoEmployeeBtn').addEventListener('click', function() {
+  isAutoEmployeeMode = !isAutoEmployeeMode;
+  if (isAutoEmployeeMode) {
+    const ok = startAutoEmployeeMode(-1);
+    if (!ok) { isAutoEmployeeMode = false; return; }
+    this.classList.add('active'); this.innerHTML = '🤖 Авторежим по сотруднику: ВКЛ';
+  } else {
+    stopAutoEmployeeMode();
+    this.classList.remove('active'); this.innerHTML = '🤖 Авторежим по сотруднику: ВЫКЛ';
+  }
+});
+
+function undo() {
+  if (undoStack.length === 0) return;
+  if (isEditing()) commitEditMode();
+  const action = undoStack.pop(); redoStack.push(action);
+  const month = parseInt(monthSelect.value), year = parseInt(yearSelect.value);
+  if (action.type === 'color') {
+    action.changes.slice().reverse().forEach(ch => {
+      if (ch.isHeader) {
+        const header = document.getElementById(`header-day-${ch.dayIndex}`);
+        if (header) {
+          if (ch.oldColor === null) { header.style.backgroundColor=''; header.style.color=''; header.style.fontWeight=''; setHeaderAutoColor(header, month, year, ch.dayIndex+1); }
+          else { header.style.backgroundColor = ch.oldColor; header.style.color = isDarkColor(ch.oldColor) ? '#fff' : '#333'; }
+        }
+      } else {
+        const rows = table.querySelectorAll('tbody.emp-group > tr');
+        const row = rows[ch.rowIndex];
+        if (row) {
+          const inp = row.querySelector(`input[data-day-index="${ch.dayIndex}"]`);
+          if (inp) {
+            const td = inp.parentElement;
+            if (ch.oldColor === null) { td.style.backgroundColor=''; setCellAutoColor(td, month, year, ch.dayIndex+1); }
+            else td.style.backgroundColor = ch.oldColor;
+          }
+        }
+      }
+    });
+  } else if (action.type === 'text') {
+    action.changes.slice().reverse().forEach(ch => { if (ch.cell) ch.cell.value = ch.oldValue; });
+    calculateTotals();
+    updateRowFilledStatus();
+  } else if (action.type === 'check') {
+    readyRows[action.id] = action.oldValue;
+    const idx = employees.findIndex(e => e.id === action.id);
+    if (idx >= 0) applyReadyVisual(idx, action.oldValue);
+  }
+  updateHistoryButtons();
+  renderSelectionVisual();
+}
+function redo() {
+  if (redoStack.length === 0) return;
+  if (isEditing()) commitEditMode();
+  const action = redoStack.pop(); undoStack.push(action);
+  const month = parseInt(monthSelect.value), year = parseInt(yearSelect.value);
+  if (action.type === 'color') {
+    action.changes.forEach(ch => {
+      if (ch.isHeader) {
+        const header = document.getElementById(`header-day-${ch.dayIndex}`);
+        if (header) {
+          if (ch.newColor === null) { header.style.backgroundColor=''; header.style.color=''; header.style.fontWeight=''; setHeaderAutoColor(header, month, year, ch.dayIndex+1); }
+          else { header.style.backgroundColor = ch.newColor; header.style.color = isDarkColor(ch.newColor) ? '#fff' : '#333'; }
+        }
+      } else {
+        const rows = table.querySelectorAll('tbody.emp-group > tr');
+        const row = rows[ch.rowIndex];
+        if (row) {
+          const inp = row.querySelector(`input[data-day-index="${ch.dayIndex}"]`);
+          if (inp) {
+            const td = inp.parentElement;
+            if (ch.newColor === null) { td.style.backgroundColor=''; setCellAutoColor(td, month, year, ch.dayIndex+1); }
+            else td.style.backgroundColor = ch.newColor;
+          }
+        }
+      }
+    });
+  } else if (action.type === 'text') {
+    action.changes.forEach(ch => { if (ch.cell) ch.cell.value = ch.newValue; });
+    calculateTotals();
+    updateRowFilledStatus();
+  } else if (action.type === 'check') {
+    readyRows[action.id] = action.newValue;
+    const idx = employees.findIndex(e => e.id === action.id);
+    if (idx >= 0) applyReadyVisual(idx, action.newValue);
+  }
+  updateHistoryButtons();
+  renderSelectionVisual();
+}
+document.getElementById('undoBtn').addEventListener('click', undo);
+document.getElementById('redoBtn').addEventListener('click', redo);
+
+function getRawHolidayType(month, day, year) {
+  const ds = `${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  if (regionalStatic.includes(ds)) return 'regional';
+  if (regionalDynamic[year] && regionalDynamic[year].includes(ds)) return 'regional';
+  if (federalHolidays.includes(ds)) return 'federal';
+  return null;
+}
+function getEffectiveHoliday(month, day, year) {
+  const own = getRawHolidayType(month, day, year);
+  if (own) {
+    const dow = new Date(year, month, day).getDay();
+    if (dow === 0) {
+      if (day + 1 <= new Date(year, month+1, 0).getDate()) return null;
+      return own;
+    }
+    return own;
+  }
+  if (day > 1) {
+    const dow = new Date(year, month, day).getDay();
+    if (dow === 1) {
+      const prevDow = new Date(year, month, day-1).getDay();
+      if (prevDow === 0) {
+        const prevHol = getRawHolidayType(month, day-1, year);
+        if (prevHol) return prevHol;
+      }
+    }
+  }
+  return null;
+}
+function isPreHolidayForType(month, day, year, type) {
+  let m = month, y = year, d = day;
+  for (let step = 0; step < 40; step++) {
+    d++;
+    const dim = new Date(y, m+1, 0).getDate();
+    if (d > dim) { d = 1; m++; if (m > 11) { m = 0; y++; } }
+    const dow = new Date(y, m, d).getDay();
+    const ht = getEffectiveHoliday(m, d, y);
+    if (ht) return true;
+    let isWorkingDay;
+    if (type === 'laborant') isWorkingDay = (dow !== 0 && dow !== 6);
+    else isWorkingDay = (dow !== 0);
+    if (isWorkingDay) return false;
+  }
+  return false;
+}
+function getAutoColor(month, year, day) {
+  const date = new Date(year, month, day);
+  const dow = date.getDay();
+  const ht = getEffectiveHoliday(month, day, year);
+  if (ht === 'regional') return '#c6e0b4';
+  if (ht === 'federal') return '#ff9999';
+  if (dow === 0 || dow === 6) return '#fce4e4';
+  return null;
+}
+function setCellAutoColor(td, month, year, day) {
+  const c = getAutoColor(month, year, day);
+  if (c) td.style.backgroundColor = c; else td.style.backgroundColor = '';
+}
+function setHeaderAutoColor(th, month, year, day) {
+  const date = new Date(year, month, day);
+  const dow = date.getDay();
+  const ht = getEffectiveHoliday(month, day, year);
+  if (ht === 'regional') { th.style.backgroundColor='#c6e0b4'; th.style.color='#1e5c1e'; th.style.fontWeight='bold'; }
+  else if (ht === 'federal') { th.style.backgroundColor='#ff9999'; th.style.color='#7a0000'; th.style.fontWeight='bold'; }
+  else if (dow === 0 || dow === 6) { th.style.backgroundColor='#fce4e4'; th.style.color=''; th.style.fontWeight=''; }
+  else { th.style.backgroundColor=''; th.style.color=''; th.style.fontWeight=''; }
+}
+function isDarkColor(hex) {
+  if (!hex || hex === '#ffffff') return false;
+  const r = parseInt(hex.substr(1,2),16), g = parseInt(hex.substr(3,2),16), b = parseInt(hex.substr(5,2),16);
+  return ((r*299 + g*587 + b*114) / 1000 < 128);
+}
+function getRate(posHtml) {
+  const m = posHtml.match(/(\d+(?:[.,]\d+)?)\s*ст\./);
+  if (!m) return 1;
+  return parseFloat(m[1].replace(',', '.'));
+}
+function getPositionType(posHtml) {
+  const lower = posHtml.toLowerCase();
+  if (lower.includes('инженер')) return 'engineer';
+  if (lower.includes('лаборант')) return 'laborant';
+  if (lower.includes('ассистент')) return 'assistant';
+  if (lower.includes('доцент')) return 'docent';
+  if (lower.includes('профессор')) return 'professor';
+  if (lower.includes('заведующий кафедрой')) return 'head';
+  if (lower.includes('старший преподаватель') || lower.includes('ст. преподаватель') || lower.includes('ст преподаватель')) return 'senior_teacher';
+  return null;
+}
+
+function renderHeaders() {
+  daysRow.innerHTML = '';
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const dh1 = document.querySelector('th[colspan="15"]');
+  if (dh1) dh1.textContent = `Числа месяца (1-15)`;
+  const dh2 = document.getElementById('days-header-2');
+  dh2.textContent = `Числа месяца (16-31)`;
+  dh2.colSpan = 16;
+  for (let i = 1; i <= 31; i++) {
+    const th = document.createElement('th');
+    th.textContent = i;
+    th.id = `header-day-${i-1}`;
+    th.dataset.dayIndex = i - 1;
+    setHeaderAutoColor(th, month, year, i);
+    if (i > daysInMonth) {
+      th.style.opacity = '0.3';
+      th.style.textDecoration = 'line-through';
+      th.style.backgroundColor = '#e0e0e0';
+    }
+    daysRow.appendChild(th);
+  }
+}
+
+function renderTable() {
+  table.querySelectorAll('tbody.emp-group').forEach(g => g.remove());
+  employees.forEach((emp, index) => {
+    const group = document.createElement('tbody');
+    group.className = 'emp-group' + (readyRows[emp.id] ? ' row-ready' : '');
+    group.dataset.empIndex = index;
+    const tr1 = document.createElement('tr');
+    tr1.className = 'attendance-row' + (readyRows[emp.id] ? ' row-ready' : '');
+    tr1.innerHTML = `
+      <td class="sticky-col-1" rowspan="2">${emp.id}</td>
+      <td class="sticky-col-2" rowspan="2">${emp.name}</td>
+      <td class="sticky-col-3" rowspan="2">${emp.tab}</td>
+      <td class="sticky-col-4" rowspan="2">${emp.pos}</td>`;
+    const tr2 = document.createElement('tr');
+    tr2.className = 'hours-row' + (readyRows[emp.id] ? ' row-ready' : '');
+    const checkTd = renderCheckCell(emp, index);
+    tr1.insertBefore(checkTd, tr1.firstChild);
+    for (let i = 0; i < 31; i++) {
+      const td1 = document.createElement('td'); td1.className='day-cell';
+      const inp1 = document.createElement('input'); inp1.type='text'; inp1.dataset.dayIndex = i;
+      inp1.addEventListener('input', calculateTotals); inp1.addEventListener('keydown', handleInputKeydown);
+      td1.appendChild(inp1); tr1.appendChild(td1);
+      const td2 = document.createElement('td'); td2.className='day-cell';
+      const inp2 = document.createElement('input'); inp2.type='text'; inp2.dataset.dayIndex = i;
+      inp2.addEventListener('input', calculateTotals); inp2.addEventListener('keydown', handleInputKeydown);
+      td2.appendChild(inp2); tr2.appendChild(td2);
+      if (i === 14) {
+        const d1 = document.createElement('td'); d1.className='total-col'; d1.id=`total1-days-${index}`; d1.textContent='Ф(0)'; tr1.appendChild(d1);
+        const h1 = document.createElement('td'); h1.className='total-col'; h1.id=`total1-hours-${index}`; h1.textContent='0'; tr2.appendChild(h1);
+      }
+    }
+    const d2 = document.createElement('td'); d2.className='total-col'; d2.id=`total2-days-${index}`; d2.textContent='Ф(0)'; tr1.appendChild(d2);
+    const h2 = document.createElement('td'); h2.className='total-col'; h2.id=`total2-hours-${index}`; h2.textContent='0'; tr2.appendChild(h2);
+    group.appendChild(tr1); group.appendChild(tr2); table.appendChild(group);
+  });
+  updateCellBackgrounds();
+  updateStickyLefts();
+  updateRowFilledStatus();
+  if (selectedCells.size > 0) renderSelectionVisual();
+  else clearSelectionVisual();
+}
+
+function updateCellBackgrounds() {
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  table.querySelectorAll('tbody.emp-group > tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    inputs.forEach((inp, idx) => {
+      const day = idx + 1;
+      const td = inp.parentElement;
+      td.style.backgroundColor = '';
+      td.classList.remove('inactive','range-fill','active-cell');
+      inp.classList.remove('is-editing');
+      if (day > daysInMonth) { td.classList.add('inactive'); td.style.backgroundColor = '#e0e0e0'; inp.value=''; return; }
+      setCellAutoColor(td, month, year, day);
+    });
+  });
+}
+
+function handleInputKeydown(e) {
+  const input = e.target;
+  if (isEditing()) {
+    if (e.key === 'Enter') { e.preventDefault(); commitEditMode(); return; }
+    if (e.key === 'Escape') { e.preventDefault(); cancelEditMode(); return; }
+    return;
+  }
+  if (e.key === 'Enter') { e.preventDefault(); input.blur(); return; }
+  let tr = input.closest('tr');
+  let isHoursRow = tr.classList.contains('hours-row');
+  let dayIndex = parseInt(input.dataset.dayIndex);
+  let allRows = getAllRows();
+  let rowIndex = allRows.indexOf(tr);
+  let targetRowIndex = rowIndex, targetDayIndex = dayIndex, targetIsHoursRow = isHoursRow, isArrow = false;
+  if (e.key === 'ArrowRight') { targetDayIndex++; isArrow = true; }
+  else if (e.key === 'ArrowLeft') { targetDayIndex--; isArrow = true; }
+  else if (e.key === 'ArrowDown') { if (!isHoursRow) targetIsHoursRow = true; else { targetRowIndex += 2; targetIsHoursRow = false; } isArrow = true; }
+  else if (e.key === 'ArrowUp') { if (isHoursRow) targetIsHoursRow = false; else { targetRowIndex -= 2; targetIsHoursRow = true; } isArrow = true; }
+  if (!isArrow) return;
+  e.preventDefault();
+  if (targetDayIndex < 0) targetDayIndex = 0; if (targetDayIndex > 30) targetDayIndex = 30;
+  if (targetRowIndex < 0) targetRowIndex = 0; if (targetRowIndex >= allRows.length) targetRowIndex = allRows.length - 1;
+  const targetRow = allRows[targetRowIndex + (targetIsHoursRow ? 1 : 0)];
+  if (!targetRow) return;
+  const targetInputs = targetRow.querySelectorAll('input');
+  const targetInput = targetInputs[targetDayIndex];
+  if (targetInput && !targetInput.parentElement.classList.contains('inactive')) {
+    if (e.shiftKey) {
+      const start = activeCell || input;
+      setSelection(start, targetInput);
+    } else {
+      selectSingle(targetInput);
+    }
+  }
+}
+
+function clearAllReadyChecks() {
+  table.querySelectorAll('tbody.emp-group').forEach((group, index) => {
+    const empId = employees[index].id;
+    if (readyRows[empId]) {
+      readyRows[empId] = false;
+      applyReadyVisual(index, false);
+    }
+  });
+}
+
+document.getElementById('th-check').addEventListener('click', (e) => {
+  e.stopPropagation();
+  clearAllReadyChecks();
+  pushToHistory({ type: 'check-all', oldValue: false, newValue: true });
+});
+
+const now = new Date();
+monthSelect.value = now.getMonth();
+yearSelect.value = now.getFullYear();
+
+renderHeaders();
+renderTable();
+calculateTotals();
+setupResizers();
+
+window.addEventListener('resize', () => requestAnimationFrame(() => { updateSelectionRect(); updateCopyRect(); }));
+const tableContainer = document.querySelector('.table-container');
+if (tableContainer) {
+  tableContainer.addEventListener('scroll', () => requestAnimationFrame(() => { updateSelectionRect(); updateCopyRect(); }));
+}
+
+monthSelect.addEventListener('change', () => {
+  if (isEditing()) commitEditMode();
+  clearSelection();
+  copyRegion = null; updateCopyRect();
+  clipboard = null;
+  renderHeaders(); renderTable(); calculateTotals();
+  undoStack = []; redoStack = []; updateHistoryButtons();
+  if (isAutoEmployeeMode && autoEmployeeIndex >= 0) setAutoCurrentVisual(autoEmployeeIndex);
+});
+yearSelect.addEventListener('change', () => {
+  if (isEditing()) commitEditMode();
+  clearSelection();
+  copyRegion = null; updateCopyRect();
+  clipboard = null;
+  renderHeaders(); renderTable(); calculateTotals();
+  undoStack = []; redoStack = []; updateHistoryButtons();
+  if (isAutoEmployeeMode && autoEmployeeIndex >= 0) setAutoCurrentVisual(autoEmployeeIndex);
+});
+
+function calculateTotals() {
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const groups = table.querySelectorAll('tbody.emp-group');
+  groups.forEach((group, empIndex) => {
+    const tr1 = group.querySelector('tr.attendance-row');
+    const tr2 = group.querySelector('tr.hours-row');
+    if (!tr1 || !tr2) return;
+    const in1 = tr1.querySelectorAll('input');
+    const in2 = tr2.querySelectorAll('input');
+    let countF1 = 0, hours1 = 0;
+    let countFAll = 0, hoursAll = 0;
+    for (let d = 0; d < daysInMonth; d++) {
+      const v1 = in1[d] ? in1[d].value.trim() : '';
+      const v2 = parseFloat(in2[d] ? in2[d].value.replace(',', '.') : '') || 0;
+      const isWork = (v1 === 'Ф' || v1 === 'ф' || v1 === 'Я' || v1 === 'я');
+      if (isWork) {
+        countFAll++;
+        hoursAll += v2;
+        if (d < 15) { countF1++; hours1 += v2; }
+      }
+    }
+    const t1 = document.getElementById(`total1-days-${empIndex}`);
+    const h1 = document.getElementById(`total1-hours-${empIndex}`);
+    const t2 = document.getElementById(`total2-days-${empIndex}`);
+    const h2 = document.getElementById(`total2-hours-${empIndex}`);
+    if (t1) t1.textContent = `Ф(${countF1})`;
+    if (h1) h1.textContent = hours1 > 0 ? hours1.toFixed(2).replace(/\.00$/,'') : '0';
+    if (t2) t2.textContent = `Ф(${countFAll})`;
+    if (h2) h2.textContent = hoursAll > 0 ? hoursAll.toFixed(2).replace(/\.00$/,'') : '0';
+  });
+  updateRowFilledStatus();
+}
+
+/* ==================== КАЛЕНДАРЬ ==================== */
+const calendarModal = document.getElementById('calendarModal');
+const calendarModalBox = document.getElementById('calendarModalBox');
+const calendarCloseBtn = document.getElementById('calendarCloseBtn');
+const calendarTitle = document.getElementById('calendarTitle');
+const calendarBody = document.getElementById('calendarBody');
+const calendarBtn = document.getElementById('calendarBtn');
+const calPrevBtn = document.getElementById('calPrevBtn');
+const calNextBtn = document.getElementById('calNextBtn');
+const calTodayBtn = document.getElementById('calTodayBtn');
+const calYearSelect = document.getElementById('calYearSelect');
+
+const MONTH_NAMES = ['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
+
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth();
+
+let calPosX = null, calPosY = null;
+let isDraggingCalendar = false;
+let dragStartX = 0, dragStartY = 0;
+let dragStartLeft = 0, dragStartTop = 0;
+
+function fillYearSelect() {
+  const cur = new Date().getFullYear();
+  calYearSelect.innerHTML = '';
+  for (let y = cur - 5; y <= cur + 5; y++) {
+    const opt = document.createElement('option');
+    opt.value = y;
+    opt.textContent = y;
+    if (y === calYear) opt.selected = true;
+    calYearSelect.appendChild(opt);
+  }
+}
+
+function renderCalendar() {
+  const daysInMonth = new Date(calYear, calMonth+1, 0).getDate();
+  calendarTitle.textContent = `${MONTH_NAMES[calMonth]} ${calYear}`;
+  calYearSelect.value = calYear;
+
+  const firstDow = new Date(calYear, calMonth, 1).getDay();
+  const startOffset = (firstDow + 6) % 7;
+
+  const today = new Date();
+  const isCurrentMonth = (today.getFullYear() === calYear && today.getMonth() === calMonth);
+
+  let html = '';
+  let day = 1;
+  const totalCells = Math.ceil((startOffset + daysInMonth) / 7) * 7;
+  for (let i = 0; i < totalCells; i++) {
+    if (i % 7 === 0) html += '<tr>';
+    if (i < startOffset || day > daysInMonth) {
+      html += '<td class="empty"></td>';
+    } else {
+      const date = new Date(calYear, calMonth, day);
+      const dow = date.getDay();
+      const ht = getEffectiveHoliday(calMonth, day, calYear);
+      let cls = '';
+      let title = '';
+      if (ht === 'federal' || ht === 'regional') {
+        cls = ht === 'federal' ? 'holiday' : 'regional';
+        title = getHolidayName(calMonth, day, calYear, ht);
+      } else if (dow === 0 || dow === 6) {
+        cls = 'weekend';
+        title = 'Выходной';
+      }
+      if (isCurrentMonth && today.getDate() === day) cls += ' today';
+      const titleAttr = title ? ` title="${title}"` : '';
+      html += `<td class="${cls}"${titleAttr}>${day}</td>`;
+      day++;
+    }
+    if (i % 7 === 6) html += '</tr>';
+  }
+  calendarBody.innerHTML = html;
+}
+
+function getHolidayName(month, day, year, ht) {
+  const ds = `${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+  let name = holidayNames[ds];
+  if (!name) {
+    const prev = new Date(year, month, day - 1);
+    const prevDs = `${String(prev.getMonth()+1).padStart(2,'0')}-${String(prev.getDate()).padStart(2,'0')}`;
+    name = holidayNames[prevDs];
+  }
+  if (name) return name;
+  return ht === 'federal' ? 'Федеральный праздник' : 'Праздник РБ';
+}
+
+function openCalendar() {
+  calMonth = parseInt(monthSelect.value);
+  calYear = parseInt(yearSelect.value);
+  fillYearSelect();
+  renderCalendar();
+  calendarModal.classList.add('open');
+
+  if (calPosX === null || calPosY === null) {
+    const rect = calendarModalBox.getBoundingClientRect();
+    calPosX = Math.max(10, (window.innerWidth - rect.width) / 2);
+    calPosY = Math.max(10, (window.innerHeight - rect.height) / 2);
+  } else {
+    const rect = calendarModalBox.getBoundingClientRect();
+    const maxX = window.innerWidth - rect.width - 10;
+    const maxY = window.innerHeight - rect.height - 10;
+    if (calPosX > maxX) calPosX = Math.max(10, maxX);
+    if (calPosY > maxY) calPosY = Math.max(10, maxY);
+    if (calPosX < 10) calPosX = 10;
+    if (calPosY < 10) calPosY = 10;
+  }
+  applyCalendarPosition();
+}
+
+function applyCalendarPosition() {
+  if (calPosX === null || calPosY === null) return;
+  calendarModalBox.classList.add('dragged');
+  calendarModalBox.style.left = calPosX + 'px';
+  calendarModalBox.style.top = calPosY + 'px';
+}
+function closeCalendar() {
+  calendarModal.classList.remove('open');
+}
+
+calPrevBtn.addEventListener('click', () => {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  fillYearSelect();
+  renderCalendar();
+});
+calNextBtn.addEventListener('click', () => {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  fillYearSelect();
+  renderCalendar();
+});
+calTodayBtn.addEventListener('click', () => {
+  const t = new Date();
+  calYear = t.getFullYear();
+  calMonth = t.getMonth();
+  fillYearSelect();
+  renderCalendar();
+});
+calYearSelect.addEventListener('change', () => {
+  calYear = parseInt(calYearSelect.value);
+  renderCalendar();
+});
+
+calendarTitle.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (e.target.closest('.modal-close')) return;
+  isDraggingCalendar = true;
+  dragStartX = e.clientX;
+  dragStartY = e.clientY;
+  dragStartLeft = calPosX !== null ? calPosX : 0;
+  dragStartTop = calPosY !== null ? calPosY : 0;
+  e.preventDefault();
+  document.body.style.userSelect = 'none';
+});
+document.addEventListener('mousemove', (e) => {
+  if (!isDraggingCalendar) return;
+  const dx = e.clientX - dragStartX;
+  const dy = e.clientY - dragStartY;
+  let newX = dragStartLeft + dx;
+  let newY = dragStartTop + dy;
+  const rect = calendarModalBox.getBoundingClientRect();
+  const maxX = window.innerWidth - rect.width - 5;
+  const maxY = window.innerHeight - rect.height - 5;
+  if (newX < 5) newX = 5;
+  if (newY < 5) newY = 5;
+  if (newX > maxX) newX = maxX;
+  if (newY > maxY) newY = maxY;
+  calPosX = newX;
+  calPosY = newY;
+  applyCalendarPosition();
+});
+document.addEventListener('mouseup', () => {
+  if (isDraggingCalendar) {
+    isDraggingCalendar = false;
+    document.body.style.userSelect = '';
+  }
+});
+
+calendarBtn.addEventListener('click', openCalendar);
+calendarCloseBtn.addEventListener('click', closeCalendar);
+calendarModal.addEventListener('click', (e) => {
+  if (e.target === calendarModal) closeCalendar();
+});
+
+/* ==================== ИНСТРУКЦИЯ ==================== */
+const guideModal = document.getElementById('guideModal');
+const guideCloseBtn = document.getElementById('guideCloseBtn');
+const guideBtn = document.getElementById('guideBtn');
+
+function openGuide() {
+  guideModal.classList.add('open');
+}
+function closeGuide() {
+  guideModal.classList.remove('open');
+}
+
+guideBtn.addEventListener('click', openGuide);
+guideCloseBtn.addEventListener('click', closeGuide);
+guideModal.addEventListener('click', (e) => {
+  if (e.target === guideModal) closeGuide();
+});
+
+/* ==================== МАНУАЛ ==================== */
+const manualModal = document.getElementById('manualModal');
+const manualCloseBtn = document.getElementById('manualCloseBtn');
+const manualBtn = document.getElementById('manualBtn');
+
+function openManual() {
+  manualModal.classList.add('open');
+}
+function closeManual() {
+  manualModal.classList.remove('open');
+}
+
+manualBtn.addEventListener('click', openManual);
+manualCloseBtn.addEventListener('click', closeManual);
+manualModal.addEventListener('click', (e) => {
+  if (e.target === manualModal) closeManual();
+});
+
+/* ==================== О ПРОГРАММЕ ==================== */
+const aboutModal = document.getElementById('aboutModal');
+const aboutCloseBtn = document.getElementById('aboutCloseBtn');
+const aboutBtn = document.getElementById('aboutBtn');
+
+function openAbout() {
+  aboutModal.classList.add('open');
+}
+function closeAbout() {
+  aboutModal.classList.remove('open');
+}
+
+aboutBtn.addEventListener('click', openAbout);
+aboutCloseBtn.addEventListener('click', closeAbout);
+aboutModal.addEventListener('click', (e) => {
+  if (e.target === aboutModal) closeAbout();
+});
+
+/* ==================== ЭКСПОРТ / ИМПОРТ EXCEL ==================== */
+const exportExcelBtn = document.getElementById('exportExcelBtn');
+const importExcelBtn = document.getElementById('importExcelBtn');
+const excelInput = document.getElementById('excelInput');
+
+exportExcelBtn.addEventListener('click', () => {
+  if (isEditing()) commitEditMode();
+  
+  const data = employees.map(emp => {
+    return {
+      "ФИО": emp.name,
+      "Таб. номер": emp.tab,
+      "Должность": emp.pos.replace(/<br>/g, '\n') 
+    };
+  });
+
+  const ws = XLSX.utils.json_to_sheet(data);
+  
+  ws['!cols'] = [
+    { wch: 40 },
+    { wch: 15 },
+    { wch: 30 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Сотрудники");
+
+  XLSX.writeFile(wb, "Сотрудники.xlsx");
+  
+  document.getElementById('employeeDropdown').classList.remove('open');
+});
+
+importExcelBtn.addEventListener('click', () => {
+  excelInput.click();
+  document.getElementById('employeeDropdown').classList.remove('open');
+});
+
+excelInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = (event) => {
+    try {
+      const data = new Uint8Array(event.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      
+      const json = XLSX.utils.sheet_to_json(worksheet);
+
+      if (!json || json.length === 0) {
+        alert('Файл пуст или имеет неверный формат.');
+        return;
+      }
+
+      const firstRow = json[0];
+      if (!('ФИО' in firstRow) || !('Таб. номер' in firstRow) || !('Должность' in firstRow)) {
+        alert('В файле должны быть колонки "ФИО", "Таб. номер" и "Должность".');
+        return;
+      }
+
+      const newEmployees = json.map((row, idx) => {
+        let posHtml = String(row['Должность'] || '').replace(/\n/g, '<br>');
+        return {
+          id: idx + 1,
+          name: String(row['ФИО'] || ''),
+          tab: String(row['Таб. номер'] || ''),
+          pos: posHtml
+        };
+      }).filter(emp => emp.name.trim() !== '');
+
+      if (newEmployees.length === 0) {
+        alert('Не найдено ни одного сотрудника в файле.');
+        return;
+      }
+
+      if (isEditing()) commitEditMode();
+      clearSelection();
+      copyRegion = null; updateCopyRect();
+      clipboard = null;
+      undoStack = []; redoStack = []; updateHistoryButtons();
+      
+      if (isAutoEmployeeMode) {
+        isAutoEmployeeMode = false;
+        const btn = document.getElementById('autoEmployeeBtn');
+        if (btn) {
+          btn.classList.remove('active'); 
+          btn.innerHTML = '🤖 Авторежим по сотруднику: ВЫКЛ';
+        }
+      }
+
+      employees.length = 0;
+      employees.push(...newEmployees);
+      
+      readyRows = {};
+      renderHeaders();
+      renderTable();
+      calculateTotals();
+      
+      alert(`Успешно загружено ${employees.length} сотрудников.`);
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка при чтении файла. Убедитесь, что это корректный файл Excel (.xlsx).');
+    } finally {
+      excelInput.value = '';
+    }
+  };
+  reader.readAsArrayBuffer(file);
+});
+
+const employeeDropdown = document.getElementById('employeeDropdown');
+const employeesMenuBtn = document.getElementById('employeesMenuBtn');
+
+employeesMenuBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  employeeDropdown.classList.toggle('open');
+});
+
+document.addEventListener('click', (e) => {
+  if (!employeeDropdown.contains(e.target)) {
+    employeeDropdown.classList.remove('open');
+  }
+});
+
+/* ==================== КНОПКА ЗАЛИВКИ + МИНИ-ПАЛИТРА ==================== */
+paintModeBtn.addEventListener('click', function(e) {
+  e.stopPropagation();
+  isPaintMode = !isPaintMode;
+  if (isPaintMode) {
+    if (isEditing()) commitEditMode();
+    document.body.classList.add('paint-mode');
+    this.classList.add('active');
+    this.innerHTML = '🖌️ Заливка столбца: ВКЛ';
+    if (document.activeElement) document.activeElement.blur();
+    brushPalettePopup.classList.add('open');
+  } else {
+    document.body.classList.remove('paint-mode');
+    this.classList.remove('active');
+    this.innerHTML = '🖌️ Заливка столбца: ВЫКЛ';
+    brushPalettePopup.classList.remove('open');
+  }
+});
+
+brushPalettePopup.addEventListener('click', (e) => {
+  const sw = e.target.closest('.color-swatch');
+  if (!sw) return;
+  brushPalettePopup.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('selected'));
+  sw.classList.add('selected');
+  currentColor = sw.dataset.color;
+});
+
+document.getElementById('autofillBtn').addEventListener('click', () => {
+  if (isEditing()) commitEditMode();
+  const month = parseInt(monthSelect.value);
+  const year = parseInt(yearSelect.value);
+  const daysInMonth = new Date(year, month+1, 0).getDate();
+  const groups = table.querySelectorAll('tbody.emp-group');
+  let action = { type: 'text', changes: [], autofill: true };
+  groups.forEach((group, empIndex) => {
+    const emp = employees[empIndex];
+    if (!emp) return;
+    const type = getPositionType(emp.pos);
+    if (!type) return;
+    const tr1 = group.querySelector('tr.attendance-row');
+    const tr2 = group.querySelector('tr.hours-row');
+    if (!tr1 || !tr2) return;
+    const rate = getRate(emp.pos);
+    const inputsDays = tr1.querySelectorAll('input');
+    const inputsHours = tr2.querySelectorAll('input');
+    for (let d = 0; d < daysInMonth; d++) {
+      const day = d + 1;
+      const date = new Date(year, month, day);
+      const dow = date.getDay();
+      const ht = getEffectiveHoliday(month, day, year);
+      const inpHours = inputsHours[d], inpDay = inputsDays[d];
+      if (!inpHours || !inpDay) continue;
+      if (dow === 0) {
+        if (inpDay.value !== 'В') { action.changes.push({ cell: inpDay, oldValue: inpDay.value, newValue: 'В' }); inpDay.value = 'В'; }
+        if (inpHours.value !== '') { action.changes.push({ cell: inpHours, oldValue: inpHours.value, newValue: '' }); inpHours.value = ''; }
+        continue;
+      }
+      if (ht) {
+        if (inpDay.value !== 'В') { action.changes.push({ cell: inpDay, oldValue: inpDay.value, newValue: 'В' }); inpDay.value = 'В'; }
+        if (inpHours.value !== '') { action.changes.push({ cell: inpHours, oldValue: inpHours.value, newValue: '' }); inpHours.value = ''; }
+        continue;
+      }
+      let val = null;
+      if (type === 'engineer') val = dow === 6 ? 5 * rate : 7 * rate;
+      else if (type === 'laborant') {
+        if (dow === 6) val = null;
+        else if (dow >= 1 && dow <= 4) val = rate >= 1 ? 8.25 : (rate === 0.25 ? 2 : Math.round(8.25 * rate * 100) / 100);
+        else if (dow === 5) val = rate >= 1 ? 7 : (rate === 0.25 ? 1 : Math.round(7 * rate * 100) / 100);
+      }
+      else val = 6 * rate;
+      if (val !== null && isPreHolidayForType(month, day, year, type)) { val = val - 1; if (val <= 0) val = null; }
+      let newHoursValue;
+      if (val === null) newHoursValue = '';
+      else if (type === 'laborant') {
+        if (Math.abs(val - 8.25) < 0.001) newHoursValue = '8.25';
+        else newHoursValue = String(Math.round(val * 100) / 100);
+      } else newHoursValue = String(Math.round(val * 100) / 100);
+      if (inpHours.value !== newHoursValue) {
+        action.changes.push({ cell: inpHours, oldValue: inpHours.value, newValue: newHoursValue });
+        inpHours.value = newHoursValue;
+      }
+      const hoursNum = parseFloat(newHoursValue) || 0;
+      const newDayValue = hoursNum > 0 ? 'Ф' : 'В';
+      if (inpDay.value !== newDayValue) {
+        action.changes.push({ cell: inpDay, oldValue: inpDay.value, newValue: newDayValue });
+        inpDay.value = newDayValue;
+      }
+    }
+  });
+  if (action.changes.length > 0) { pushToHistory(action); calculateTotals(); updateRowFilledStatus(); }
+  else alert('Нет изменений: либо все ячейки уже заполнены, либо в таблице нет подходящих должностей.');
+});
+
+document.querySelector('.controls-panel').addEventListener('mousedown', (e) => {
+  if (e.target.closest('button') || e.target.closest('.color-swatch')) e.preventDefault();
+});
+
+function generateJsonData() {
+  if (isEditing()) commitEditMode();
+  const month = parseInt(monthSelect.value, 10);
+  const year = parseInt(yearSelect.value, 10);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const groups = table.querySelectorAll('tbody.emp-group');
+  const out = [];
+  groups.forEach((group, empIndex) => {
+    const emp = employees[empIndex];
+    if (!emp) return;
+    const tr1 = group.querySelector('tr.attendance-row');
+    const tr2 = group.querySelector('tr.hours-row');
+    if (!tr1 || !tr2) return;
+    const attInputs = tr1.querySelectorAll('input');
+    const hourInputs = tr2.querySelectorAll('input');
+    const days = {};
+    for (let d = 0; d < daysInMonth; d++) {
+      const type = attInputs[d] ? attInputs[d].value.trim() : '';
+      const hours = hourInputs[d] ? hourInputs[d].value.trim() : '';
+      if (type === '' && hours === '') continue;
+      days[d + 1] = { type, hours };
+    }
+    if (Object.keys(days).length === 0) return;
+    out.push({ tab: emp.tab, name: emp.name, days });
+  });
+  return { year, month: month + 1, employees: out };
+}
+
+document.getElementById('generateScriptBtn').addEventListener('click', () => {
+  const payload = generateJsonData();
+  const jsonText = JSON.stringify(payload);
+  const scriptTemplate = `(() => {
+  const DATA = ${jsonText};
+  const normalizeTab = (t) => { if (!t) return ''; const digits = t.replace(/\\D/g, ''); return digits.length > 5 ? digits.slice(-5) : digits; };
+  const byTab = {};
+  DATA.employees.forEach(emp => { byTab[normalizeTab(emp.tab)] = emp.days; });
+  let filledSelects = 0, filledInputs = 0;
+  const missedTabs = new Set();
+  document.querySelectorAll('select.select-day').forEach(sel => {
+    const match = sel.name.match(/ip_tabel\\[(.+?)\\]\\[\\d+\\]\\[\\d+\\]\\[(\\d+)\\]\\[type\\]/);
+    if (!match) return;
+    const key = match[1]; const day = parseInt(match[2], 10);
+    const parts = key.split('_'); if (parts.length < 2) return;
+    const tab = normalizeTab(parts[1]); const rec = byTab[tab]?.[day];
+    if (!rec) { missedTabs.add(parts[1]); return; }
+    const opt = [...sel.options].find(o => o.textContent.trim() === rec.type);
+    if (opt) { sel.value = opt.value; sel.dispatchEvent(new Event('change', { bubbles: true })); filledSelects++; }
+    else { console.warn('Для дня ' + day + ' (таб. ' + tab + ') не найдено опции "' + rec.type + '"'); }
+  });
+  document.querySelectorAll('input.input-hour').forEach(inp => {
+    const match = inp.name.match(/ip_tabel\\[(.+?)\\]\\[\\d+\\]\\[\\d+\\]\\[(\\d+)\\]\\[hours\\]/);
+    if (!match) return;
+    const key = match[1]; const day = parseInt(match[2], 10);
+    const parts = key.split('_'); if (parts.length < 2) return;
+    const tab = normalizeTab(parts[1]); const rec = byTab[tab]?.[day];
+    if (!rec) return;
+    inp.value = rec.hours || '';
+    inp.dispatchEvent(new Event('input', { bubbles: true }));
+    inp.dispatchEvent(new Event('change', { bubbles: true }));
+    filledInputs++;
+  });
+  console.log('✅ Заполнение завершено!');
+  console.log('Селектов (явки): ' + filledSelects);
+  console.log('Инпутов (часы): ' + filledInputs);
+  if (missedTabs.size > 0) console.warn('⚠️ Не найдены в JSON табельные номера из ИСУ:', Array.from(missedTabs));
+})();`;
+
+  function copyToClipboard(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise((resolve, reject) => {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.top = '-9999px'; ta.style.left = '-9999px';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); resolve(); }
+      catch (err) { reject(err); }
+      finally { document.body.removeChild(ta); }
+    });
+  }
+
+  copyToClipboard(scriptTemplate).then(() => {
+    const btn = document.getElementById('generateScriptBtn');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '✅ Скрипт скопирован!';
+    btn.style.background = '#4caf50'; btn.style.borderColor = '#388e3c';
+    setTimeout(() => { btn.innerHTML = originalText; btn.style.background = '#9c27b0'; btn.style.borderColor = '#7b1fa2'; }, 2000);
+  }).catch(err => { alert('Не удалось скопировать. Ошибка: ' + err); });
+});
+</script>
+</body>
+</html>
